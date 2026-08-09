@@ -31,7 +31,7 @@ Implemented:
 ## Supabase Setup
 
 1. Create a Supabase project.
-2. Run `web/supabase/migrations/001_initial_product_schema.sql` in Supabase SQL editor or through the Supabase CLI.
+2. Run the SQL files in `web/supabase/migrations/` in order, using the Supabase SQL editor or the Supabase CLI.
 3. Add the Site URL and redirect URLs:
    - `http://localhost:8080`
    - `http://localhost:8080/app/billing`
