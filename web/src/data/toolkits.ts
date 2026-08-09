@@ -1,7 +1,7 @@
 import type { Toolkit } from "./types";
 
 /**
- * The 17 toolkits from the uploaded prototype.
+ * Toolkits from the uploaded prototype plus supplied form and video links.
  * Full content is preserved verbatim where present in the source files.
  * Checklist and reference content is imported from the uploaded handbook
  * appendices and matching clinical modules. Local policy / senior review still
@@ -462,6 +462,21 @@ const rawToolkits: Omit<Toolkit, "slug">[] = [
       { label: "Skin lesion assessment proforma", url: "/forms/skin-lesion-assessment-proforma-dct.pdf" },
       { label: "Salivary gland assessment proforma", url: "/forms/salivary-gland-swelling-assessment-proforma-dct.pdf" },
       { label: "Telephone advice and Bleep Tracker form", url: "/forms/bleep-tracker-dropdowns-v2.pdf" },
+    ],
+    escalation: "Use local Trust proformas where available. Escalate if documentation is incomplete for consent, operation notes, discharge or senior discussions.",
+    relatedModules: ["M5"],
+    sources: "Handbook Appendix Toolkit 17 — Clinical Forms, Templates & Proformas; supplied PDF proformas.",
+    ...base,
+  },
+  {
+    id: "T18",
+    icon: "🎥",
+    type: "REFERENCE",
+    title: "Common Procedure Demonstration Videos",
+    category: "General Skills",
+    urgency: "Foundation",
+    introduction: "External procedure demonstration videos for common practical skills. Use alongside local supervision and competency sign-off.",
+    links: [
       { label: "Male urinary catheterization", url: "https://youtube.com/shorts/27vlJy5pxDo?is=5sL_5dGLUQwQh3fh" },
       { label: "Female urinary catheterisation", url: "https://youtu.be/fGCwMWod3BM?is=FwZZOtDqVaJk-6Yz" },
       { label: "Insertion of nasogastric tube", url: "https://youtube.com/shorts/VP3BEKz-vFg?is=Iw-KwBq-7pCcACm-" },
@@ -476,9 +491,9 @@ const rawToolkits: Omit<Toolkit, "slug">[] = [
       { label: "Figure of 8 knot", url: "https://youtube.com/shorts/9ABjPfsbwFo?si=zqVzJ5xq0zXnsVj2" },
       { label: "Horizontal mattress suture", url: "https://youtube.com/shorts/Bih6cySiB74?si=UqjchOIQtzulNX6s" },
     ],
-    escalation: "Use local Trust proformas where available. Escalate if documentation is incomplete for consent, operation notes, discharge or senior discussions.",
-    relatedModules: ["M5"],
-    sources: "Handbook Appendix Toolkit 17 — Clinical Forms, Templates & Proformas; supplied PDF proformas; supplied procedure demonstration video list.",
+    escalation: "Use local policy and senior supervision for all practical procedures. Escalate if you are unsure, unsupervised, or the procedure is outside your competence.",
+    relatedModules: ["M9", "M18", "M26", "M34"],
+    sources: "Supplied procedure demonstration video list.",
     ...base,
   },
 ];

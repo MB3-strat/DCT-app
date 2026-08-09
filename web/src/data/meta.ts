@@ -21,7 +21,7 @@ export const PRODUCT = {
   ],
   contentVersion: "2026.07",
   moduleCount: 36,
-  toolkitCount: 17,
+  toolkitCount: 18,
 } as const;
 
 export const CATEGORIES: {
