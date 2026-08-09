@@ -41,8 +41,6 @@ async function main() {
     introduction: toolkit.introduction,
     steps: toolkit.steps,
     items: toolkit.items,
-    sections: toolkit.sections,
-    links: toolkit.links,
     warnings: toolkit.warnings,
     escalation: toolkit.escalation,
     related_modules: toolkit.relatedModules,

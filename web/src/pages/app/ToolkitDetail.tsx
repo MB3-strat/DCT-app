@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft, Bookmark, BookmarkCheck, RotateCcw, AlertTriangle,
-  PhoneCall, Clock, FileWarning, Check, ExternalLink,
+  PhoneCall, Clock, FileWarning, Check,
 } from "lucide-react";
 import { PageContainer } from "@/components/app/PageContainer";
 import { UrgencyBadge } from "@/components/UrgencyBadge";
@@ -35,12 +35,7 @@ export default function ToolkitDetail() {
 
   const bookmarked = isBookmarked(toolkit.id);
   const checked = checklistState[toolkit.id] ?? [];
-  const checklistSections = toolkit.sections?.length
-    ? toolkit.sections
-    : toolkit.items?.length
-      ? [{ heading: "", items: toolkit.items }]
-      : [];
-  const items = checklistSections.flatMap((section) => section.items);
+  const items = toolkit.items ?? [];
   const progress = items.length ? Math.round((checked.length / items.length) * 100) : 0;
   const related = (toolkit.relatedModules ?? []).map((id) => getModuleById(id)).filter(Boolean);
 
@@ -113,24 +108,6 @@ export default function ToolkitDetail() {
             </div>
           )}
 
-          {/* Linked references */}
-          {toolkit.links && toolkit.links.length > 0 && (
-            <div className="mt-6 grid gap-3">
-              {toolkit.links.map((link) => (
-                <a
-                  key={link.url}
-                  href={link.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 text-[15px] font-semibold transition-colors hover:border-brand-green/40 hover:bg-muted/50"
-                >
-                  <span className="min-w-0 flex-1 break-words">{link.label}</span>
-                  <ExternalLink className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                </a>
-              ))}
-            </div>
-          )}
-
           {/* Interactive checklist / form */}
           {items.length > 0 && (
             <div className="mt-6">
@@ -148,61 +125,32 @@ export default function ToolkitDetail() {
               <div className="mb-4 h-1.5 overflow-hidden rounded-full bg-muted">
                 <div className="h-full bg-brand-green transition-all" style={{ width: `${progress}%` }} />
               </div>
-              <div className="space-y-4">
-                {checklistSections.map((section, sectionIndex) => {
-                  const start = checklistSections
-                    .slice(0, sectionIndex)
-                    .reduce((sum, current) => sum + current.items.length, 0);
-
+              <div className="space-y-2">
+                {items.map((item, i) => {
+                  const on = checked.includes(i);
                   return (
-                    <section key={`${section.heading}-${sectionIndex}`} className={section.heading ? "rounded-xl border border-border bg-muted/30 p-3" : ""}>
-                      {section.heading && (
-                        <h2 className="mb-3 px-1 font-serif text-lg font-semibold">{section.heading}</h2>
+                    <button
+                      key={i}
+                      onClick={() => toggleChecklistItem(toolkit.id, i)}
+                      aria-pressed={on}
+                      className={cn(
+                        "flex w-full items-start gap-3 rounded-xl border p-3.5 text-left shadow-sm transition-all",
+                        on ? "border-brand-green/45 bg-brand-green/[0.08]" : "border-border bg-card hover:border-brand-green/30 hover:bg-muted/60",
                       )}
-                      <div className="space-y-2">
-                        {section.items.map((item, i) => {
-                          const itemIndex = start + i;
-                          const on = checked.includes(itemIndex);
-                          return (
-                            <button
-                              key={`${section.heading}-${i}`}
-                              onClick={() => toggleChecklistItem(toolkit.id, itemIndex)}
-                              aria-pressed={on}
-                              className={cn(
-                                "flex w-full items-start gap-3 rounded-xl border p-3.5 text-left shadow-sm transition-all",
-                                on ? "border-brand-green/45 bg-brand-green/[0.08]" : "border-border bg-card hover:border-brand-green/30 hover:bg-muted/60",
-                              )}
-                            >
-                              <span
-                                className={cn(
-                                  "mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md border-2 shadow-sm transition-colors",
-                                  on ? "border-brand-green bg-brand-green text-white" : "border-brand-green/30 bg-background text-transparent",
-                                )}
-                              >
-                                <Check className="h-4 w-4 stroke-[3]" />
-                              </span>
-                              <span className={cn("min-w-0 text-[15px] leading-relaxed", on && "text-muted-foreground line-through")}>{item}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </section>
+                    >
+                      <span
+                        className={cn(
+                          "mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md border-2 shadow-sm transition-colors",
+                          on ? "border-brand-green bg-brand-green text-white" : "border-brand-green/30 bg-background text-transparent",
+                        )}
+                      >
+                        <Check className="h-4 w-4 stroke-[3]" />
+                      </span>
+                      <span className={cn("min-w-0 text-[15px] leading-relaxed", on && "text-muted-foreground line-through")}>{item}</span>
+                    </button>
                   );
                 })}
               </div>
-            </div>
-          )}
-
-          {toolkit.warnings && toolkit.warnings.length > 0 && (
-            <div className="mt-6 rounded-xl border border-brand-gold/40 bg-brand-gold/10 p-5">
-              <h2 className="mb-2 flex items-center gap-2 font-serif text-lg font-semibold text-brand-gold-ink">
-                <AlertTriangle className="h-5 w-5" /> Safety notes
-              </h2>
-              <ul className="space-y-1.5 text-[15px] leading-relaxed text-brand-gold-ink/90">
-                {toolkit.warnings.map((warning) => (
-                  <li key={warning}>• {warning}</li>
-                ))}
-              </ul>
             </div>
           )}
 

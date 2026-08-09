@@ -102,7 +102,7 @@ export function AppPreview() {
               {[
                 { t: "Online", u: "Synced today", c: "bg-success" },
                 { t: "Bookmarks", u: "Saved modules", c: "bg-brand-green" },
-                { t: "What's new", u: "26 toolkits", c: "bg-brand-gold" },
+                { t: "What's new", u: "36 modules", c: "bg-brand-gold" },
               ].map((card) => (
                 <div key={card.t} className="rounded-lg border border-border bg-card p-2">
                   <div className="text-[10px] font-semibold leading-tight">{card.t}</div>
