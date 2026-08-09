@@ -92,7 +92,11 @@ export function search(query: string): SearchResult[] {
       score += 15;
       matched = matched || t.introduction;
     }
-    const steps = [...(t.steps ?? []), ...(t.items ?? [])];
+    const steps = [
+      ...(t.steps ?? []),
+      ...(t.items ?? []),
+      ...((t.links ?? []).map((link) => `${link.label} ${link.url}`)),
+    ];
     for (const st of steps) {
       const sn = snippet(st, q);
       if (sn) {

@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft, Bookmark, BookmarkCheck, RotateCcw, AlertTriangle,
-  PhoneCall, Clock, FileWarning, Check,
+  PhoneCall, Clock, FileWarning, Check, ExternalLink,
 } from "lucide-react";
 import { PageContainer } from "@/components/app/PageContainer";
 import { UrgencyBadge } from "@/components/UrgencyBadge";
@@ -104,6 +104,23 @@ export default function ToolkitDetail() {
                   </span>
                   <p className="pt-1 text-[15px] leading-relaxed">{step}</p>
                 </div>
+              ))}
+            </div>
+          )}
+
+          {toolkit.links && toolkit.links.length > 0 && (
+            <div className="mt-6 grid gap-3">
+              {toolkit.links.map((link) => (
+                <a
+                  key={link.url}
+                  href={link.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 text-[15px] font-semibold transition-colors hover:border-brand-green/40 hover:bg-muted/50"
+                >
+                  <span className="min-w-0 flex-1 break-words">{link.label}</span>
+                  <ExternalLink className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                </a>
               ))}
             </div>
           )}

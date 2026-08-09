@@ -44,6 +44,7 @@ export interface Toolkit {
   introduction: string;
   steps?: string[];
   items?: string[];
+  links?: { label: string; url: string }[];
   warnings?: string[];
   escalation?: string;
   relatedModules?: string[];
