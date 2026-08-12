@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ClipboardCheck, Search, X } from "lucide-react";
+import { CheckCheck, ClipboardCheck, Search, X } from "lucide-react";
 import { PageContainer, PageHeading } from "@/components/app/PageContainer";
 import { ModuleCard } from "@/components/ContentCard";
+import { Button } from "@/components/ui/button";
 import { MODULES } from "@/data/modules";
 import { CATEGORIES } from "@/data/meta";
 import { useLibrary } from "@/context/LibraryContext";
@@ -17,7 +18,7 @@ export default function Modules() {
   const [cat, setCat] = useState<Category | "all">(catParam ?? "all");
   const [urgency, setUrgency] = useState<Urgency | "all">("all");
   const [q, setQ] = useState("");
-  const { read } = useLibrary();
+  const { read, markAllRead } = useLibrary();
   const readModuleIds = new Set(read.filter((id) => id.startsWith("M")));
   const allModulesRead = readModuleIds.size >= MODULES.length;
 
@@ -78,7 +79,20 @@ export default function Modules() {
         ))}
       </div>
 
-      <p className="mb-4 text-sm text-muted-foreground">{filtered.length} module{filtered.length !== 1 ? "s" : ""}</p>
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-muted-foreground">{filtered.length} module{filtered.length !== 1 ? "s" : ""}</p>
+        {!allModulesRead && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => markAllRead(MODULES.map((module) => module.id))}
+            className="w-full gap-1.5 rounded-full sm:w-auto"
+          >
+            <CheckCheck className="h-4 w-4" /> Mark all as read
+          </Button>
+        )}
+      </div>
 
       {filtered.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-12 text-center text-muted-foreground">

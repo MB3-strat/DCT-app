@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, Lock, Send, Star } from "lucide-react";
+import { ArrowLeft, CheckCheck, CheckCircle2, Lock, Send, Star } from "lucide-react";
 import { PageContainer } from "@/components/app/PageContainer";
 import { DisclaimerBanner } from "@/components/DisclaimerBanner";
 import { Button } from "@/components/ui/button";
@@ -75,7 +75,7 @@ const EMPTY_FORM: FeedbackForm = {
 };
 
 export default function FeedbackCpd() {
-  const { read } = useLibrary();
+  const { read, markAllRead } = useLibrary();
   const readModuleIds = useMemo(() => new Set(read.filter((id) => id.startsWith("M"))), [read]);
   const allModulesRead = readModuleIds.size >= MODULES.length;
   const [form, setForm] = useState<FeedbackForm>(() => readJSON<FeedbackForm>(STORAGE_KEY, EMPTY_FORM));
@@ -134,6 +134,14 @@ export default function FeedbackCpd() {
               <div className="h-full bg-brand-green" style={{ width: `${Math.round((readModuleIds.size / MODULES.length) * 100)}%` }} />
             </div>
           </div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => markAllRead(MODULES.map((module) => module.id))}
+            className="mt-6 gap-1.5 rounded-full"
+          >
+            <CheckCheck className="h-4 w-4" /> Mark all as read
+          </Button>
         </div>
       </PageContainer>
     );

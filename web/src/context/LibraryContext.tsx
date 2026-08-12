@@ -33,6 +33,7 @@ interface LibraryValue {
   isRead: (id: string) => boolean;
   toggleRead: (id: string) => void;
   markRead: (id: string) => void;
+  markAllRead: (ids: string[]) => void;
   pushRecent: (id: string, kind: "module" | "toolkit") => void;
   clearRecent: () => void;
   checklistState: Record<string, number[]>;
@@ -147,6 +148,10 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     setRead((prev) => (prev.includes(id) ? prev : [...prev, id]));
   }, []);
 
+  const markAllRead = useCallback((ids: string[]) => {
+    setRead((prev) => Array.from(new Set([...prev, ...ids])));
+  }, []);
+
   const pushRecent = useCallback((id: string, kind: "module" | "toolkit") => {
     setRecent((prev) => {
       const filtered = prev.filter((r) => r.id !== id);
@@ -180,6 +185,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       isRead: (id) => read.includes(id),
       toggleRead,
       markRead,
+      markAllRead,
       pushRecent,
       clearRecent,
       checklistState,
@@ -193,6 +199,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       toggleBookmark,
       toggleRead,
       markRead,
+      markAllRead,
       pushRecent,
       clearRecent,
       checklistState,
