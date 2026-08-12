@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, CheckCheck, CheckCircle2, Lock, Send, Star } from "lucide-react";
+import { ArrowLeft, CheckCheck, CheckCircle2, CreditCard, Download, Lock, RefreshCw, Send, Star } from "lucide-react";
 import { PageContainer } from "@/components/app/PageContainer";
 import { DisclaimerBanner } from "@/components/DisclaimerBanner";
 import { Button } from "@/components/ui/button";
@@ -8,9 +8,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { MODULES } from "@/data/modules";
+import { useAuth } from "@/context/AuthContext";
 import { useLibrary } from "@/context/LibraryContext";
 import { readJSON, writeJSON } from "@/lib/storage";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const STORAGE_KEY = "feedback-cpd";
 
@@ -75,12 +77,27 @@ const EMPTY_FORM: FeedbackForm = {
 };
 
 export default function FeedbackCpd() {
+  const { user, session, refreshUser } = useAuth();
   const { read, markAllRead } = useLibrary();
   const readModuleIds = useMemo(() => new Set(read.filter((id) => id.startsWith("M"))), [read]);
   const allModulesRead = readModuleIds.size >= MODULES.length;
   const [form, setForm] = useState<FeedbackForm>(() => readJSON<FeedbackForm>(STORAGE_KEY, EMPTY_FORM));
+  const [certificateBusy, setCertificateBusy] = useState(false);
+  const [downloadBusy, setDownloadBusy] = useState(false);
+  const certificatePaid = user?.certificatePaymentStatus === "paid";
 
   useEffect(() => writeJSON(STORAGE_KEY, form), [form]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("certificate") === "success") {
+      toast.success("Certificate payment received. Refreshing status...");
+      void refreshUser();
+    }
+    if (params.get("certificate") === "cancelled") {
+      toast.message("Certificate payment was cancelled.");
+    }
+  }, [refreshUser]);
 
   function update<K extends keyof FeedbackForm>(key: K, value: FeedbackForm[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -112,6 +129,63 @@ export default function FeedbackCpd() {
     e.preventDefault();
     if (!requiredComplete) return;
     setForm((prev) => ({ ...prev, submitted: true, submittedAt: new Date().toISOString() }));
+  }
+
+  async function openCertificateCheckout() {
+    if (!session?.access_token) {
+      toast.error("Please sign in again before opening certificate checkout.");
+      return;
+    }
+
+    setCertificateBusy(true);
+    try {
+      const response = await fetch("/api/stripe-certificate-checkout", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const payload = await response.json();
+
+      if (!response.ok || !payload.url) {
+        toast.error(payload.error || "Certificate checkout is not available yet.");
+        return;
+      }
+
+      window.location.assign(payload.url);
+    } finally {
+      setCertificateBusy(false);
+    }
+  }
+
+  async function downloadCertificate() {
+    if (!session?.access_token) {
+      toast.error("Please sign in again before downloading the certificate.");
+      return;
+    }
+
+    setDownloadBusy(true);
+    try {
+      const response = await fetch("/api/certificate-download", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        toast.error(payload.error || "Certificate is not available yet.");
+        return;
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "DCT Survival Kit Certificate.pdf";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloadBusy(false);
+    }
   }
 
   if (!allModulesRead) {
@@ -171,7 +245,7 @@ export default function FeedbackCpd() {
             <CheckCircle2 className="h-5 w-5" /> Feedback saved
           </h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Thank you. Your feedback has been saved on this device. Certificate purchase/download is not connected yet.
+            Thank you. Your feedback has been saved on this device.
           </p>
         </div>
       )}
@@ -245,6 +319,50 @@ export default function FeedbackCpd() {
             value={form.confirmations}
             onToggle={(value) => toggleList("confirmations", value)}
           />
+
+          <div className="rounded-xl border border-border bg-background p-4">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h3 className="font-serif text-lg font-semibold">CPD certificate</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Unlock the certificate after all modules are complete and the €5 Stripe payment is confirmed.
+                </p>
+                {certificatePaid && user?.certificatePaidAt && (
+                  <p className="mt-1 text-xs font-semibold text-success">Paid on {user.certificatePaidAt}</p>
+                )}
+              </div>
+
+              {certificatePaid ? (
+                <Button type="button" onClick={downloadCertificate} disabled={downloadBusy} className="gap-2 rounded-full">
+                  <Download className="h-4 w-4" /> {downloadBusy ? "Preparing..." : "Download certificate"}
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  onClick={openCertificateCheckout}
+                  disabled={!form.submitted || certificateBusy}
+                  className="gap-2 rounded-full"
+                >
+                  <CreditCard className="h-4 w-4" /> {certificateBusy ? "Opening..." : "Pay €5"}
+                </Button>
+              )}
+            </div>
+
+            {!form.submitted && (
+              <p className="mt-3 text-xs text-muted-foreground">
+                Save the feedback form first, then the certificate payment button will unlock.
+              </p>
+            )}
+            {!certificatePaid && form.submitted && (
+              <button
+                type="button"
+                onClick={() => refreshUser()}
+                className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
+              >
+                <RefreshCw className="h-3.5 w-3.5" /> Refresh payment status after checkout
+              </button>
+            )}
+          </div>
         </FormSection>
 
         <div className="flex flex-wrap items-center gap-3">

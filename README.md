@@ -23,7 +23,8 @@ Implemented:
 - Supabase schema for profiles, modules, toolkits, bookmarks, progress, subscriber status, single-session tracking, and reported issues.
 - Account sync for bookmarks, read progress, and toolkit checklist state.
 - Stripe Checkout for the annual subscription and Stripe Customer Portal for billing/cancellation.
-- Stripe webhook endpoint with signature verification. Subscription access is never simulated client-side.
+- Stripe Checkout for the one-time CPD certificate payment after all modules are complete.
+- Stripe webhook endpoint with signature verification. Subscription and certificate access are never simulated client-side.
 - Subscriber-only app routes gated through Supabase session and subscription/admin status.
 - Disclaimer gate, cookie notice, account deletion, and cancellation/billing entry points.
 - Vercel configuration for SPA routing, serverless API functions, and deployment under `www.dctsurvivalkit.co.uk`.
@@ -48,19 +49,26 @@ npm run db:seed
 
 ## Stripe Setup
 
-1. Create a recurring annual GBP price for £20.
-2. Set `STRIPE_ANNUAL_PRICE_ID` to the Stripe `price_...` ID for that £20/year price.
-3. Configure a webhook to `https://dctsurvivalkit.co.uk/api/stripe-webhook`.
-4. Subscribe to:
+1. Create a recurring annual price for DCT Survival Kit access.
+2. Set `STRIPE_DCT_PRICE_ID` to the Stripe `price_...` ID for that yearly subscription. `STRIPE_ANNUAL_PRICE_ID` is still supported as a fallback.
+3. Create a one-time €5 price for the CPD certificate.
+4. Set `STRIPE_CERTIFICATE_PRICE_ID` to that one-time certificate `price_...` ID.
+5. Configure a webhook to `https://www.dctsurvivalkit.co.uk/api/stripe-webhook`.
+6. Subscribe to:
    - `checkout.session.completed`
    - `customer.subscription.created`
    - `customer.subscription.updated`
    - `customer.subscription.deleted`
    - `invoice.payment_failed`
-5. Set `STRIPE_WEBHOOK_SECRET`.
-6. Configure the Stripe Customer Portal.
+7. Set `STRIPE_WEBHOOK_SECRET`.
+8. Configure the Stripe Customer Portal.
 
-Stripe prices are immutable. If the subscription amount changes, create a new yearly recurring Price in Stripe and update `STRIPE_ANNUAL_PRICE_ID` in Vercel.
+Current test price IDs:
+
+- DCT subscription: `price_1U3RnmAZEBTld7VM7nhMmr4F`
+- CPD certificate: `price_1U3RoGAZEBTld7VMW69kr45T`
+
+Stripe prices are immutable. If either amount changes, create a new Price in Stripe and update the matching Vercel env var.
 
 ## Vercel / Domain
 

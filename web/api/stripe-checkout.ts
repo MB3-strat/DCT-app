@@ -15,8 +15,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
 
-    if (!process.env.STRIPE_ANNUAL_PRICE_ID) {
-      res.status(503).json({ error: "STRIPE_ANNUAL_PRICE_ID is required" });
+    const priceId = process.env.STRIPE_DCT_PRICE_ID || process.env.STRIPE_ANNUAL_PRICE_ID;
+
+    if (!priceId) {
+      res.status(503).json({ error: "STRIPE_DCT_PRICE_ID is required" });
       return;
     }
 
@@ -42,12 +44,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
-      line_items: [{ price: process.env.STRIPE_ANNUAL_PRICE_ID, quantity: 1 }],
+      line_items: [{ price: priceId, quantity: 1 }],
       success_url: `${getAppUrl()}/app/billing?checkout=success`,
       cancel_url: `${getAppUrl()}/app/billing?checkout=cancelled`,
       allow_promotion_codes: true,
-      metadata: { supabase_user_id: user.id },
-      subscription_data: { metadata: { supabase_user_id: user.id } },
+      metadata: { supabase_user_id: user.id, checkout_kind: "subscription" },
+      subscription_data: { metadata: { supabase_user_id: user.id, checkout_kind: "subscription" } },
     });
 
     res.status(200).json({ url: session.url });

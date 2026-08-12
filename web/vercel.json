@@ -3,6 +3,11 @@
   "installCommand": "npm install",
   "outputDirectory": "dist",
   "framework": "vite",
+  "functions": {
+    "api/certificate-download.ts": {
+      "includeFiles": "api/assets/dct-survival-kit-certificate.pdf"
+    }
+  },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }

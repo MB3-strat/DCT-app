@@ -29,6 +29,8 @@ export interface User {
   subscription: SubscriptionStatus;
   renewsOn?: string;
   stripeCustomerId?: string;
+  certificatePaymentStatus: "none" | "paid";
+  certificatePaidAt?: string;
 }
 
 interface AuthValue {
@@ -109,7 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("id,email,full_name,roles,subscription_status,subscription_current_period_end,stripe_customer_id")
+      .select("id,email,full_name,roles,subscription_status,subscription_current_period_end,stripe_customer_id,certificate_payment_status,certificate_paid_at")
       .eq("id", currentSession.user.id)
       .maybeSingle();
 
@@ -134,6 +136,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       subscription,
       renewsOn: profile?.subscription_current_period_end?.slice(0, 10),
       stripeCustomerId: profile?.stripe_customer_id ?? undefined,
+      certificatePaymentStatus: profile?.certificate_payment_status === "paid" ? "paid" : "none",
+      certificatePaidAt: profile?.certificate_paid_at?.slice(0, 10),
     });
     setLoading(false);
   }, []);

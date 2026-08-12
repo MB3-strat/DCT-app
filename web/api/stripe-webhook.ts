@@ -69,15 +69,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
       const userId = session.metadata?.supabase_user_id;
+      const checkoutKind = session.metadata?.checkout_kind;
 
       if (userId && session.customer) {
-        await supabase
-          .from("profiles")
-          .update({
-            stripe_customer_id: String(session.customer),
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", userId);
+        const update =
+          checkoutKind === "certificate" && session.payment_status === "paid"
+            ? {
+                stripe_customer_id: String(session.customer),
+                stripe_certificate_session_id: session.id,
+                certificate_payment_status: "paid",
+                certificate_paid_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              }
+            : {
+                stripe_customer_id: String(session.customer),
+                updated_at: new Date().toISOString(),
+              };
+
+        await supabase.from("profiles").update(update).eq("id", userId);
       }
     }
 
