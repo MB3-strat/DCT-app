@@ -4,9 +4,9 @@ import type { Category, Urgency } from "./types";
 export const PRODUCT = {
   name: "DCT Survival Kit",
   tagline: "Recognise. Assess. Escalate.",
-  priceLabel: "£20 / year",
+  priceLabel: "€20 / year",
   priceAmount: 20,
-  currency: "GBP",
+  currency: "EUR",
   clinicalAuthor: {
     name: "Vyomesh Bhatt",
     role: "Consultant Oral & Maxillofacial Surgeon",

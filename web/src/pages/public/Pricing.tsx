@@ -5,7 +5,7 @@ import { PRODUCT } from "@/data/meta";
 
 const INCLUDED = [
   "All 36 handbook modules",
-  "All 17 clinical toolkits",
+  "All 18 clinical toolkits",
   "One-tap On-Call emergency mode",
   "Fast prioritised search",
   "Bookmarks, progress & recently viewed",
@@ -37,8 +37,8 @@ export default function Pricing() {
             <div className="text-sm font-semibold uppercase tracking-widest text-white/70">
               Annual subscription
             </div>
-            <div className="mt-2 font-serif text-5xl font-semibold">£20</div>
-            <div className="mt-1 text-white/70">per year · £1.67 / month equivalent</div>
+            <div className="mt-2 font-serif text-5xl font-semibold">€20</div>
+            <div className="mt-1 text-white/70">per year · €1.67 / month equivalent</div>
           </div>
           <div className="p-8">
             <ul className="space-y-3">
@@ -56,10 +56,17 @@ export default function Pricing() {
               Get the kit <ArrowRight className="h-4 w-4" />
             </Link>
             <p className="mt-4 text-center text-xs text-muted-foreground">
-              Payment processing (Stripe) is not yet connected in this
-              prototype — no real transaction will be taken.
+              Payment is handled through Stripe Checkout. App access is only
+              unlocked after Stripe confirms the subscription.
             </p>
           </div>
+        </div>
+
+        <div className="mx-auto mt-6 max-w-md rounded-xl border border-brand-gold/40 bg-brand-gold/10 p-5 text-left">
+          <h3 className="text-sm font-semibold text-brand-gold-ink">Optional CPD certificate</h3>
+          <p className="mt-2 text-sm text-brand-gold-ink/80">
+            After completing all modules and the feedback form, users can unlock the CPD certificate with a separate €5 one-time Stripe payment.
+          </p>
         </div>
 
         <div className="mx-auto mt-8 max-w-md rounded-xl border border-border bg-background p-5 text-left">

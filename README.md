@@ -49,7 +49,7 @@ npm run db:seed
 
 ## Stripe Setup
 
-1. Create a recurring annual price for DCT Survival Kit access.
+1. Create a recurring annual EUR price for DCT Survival Kit access (€20/year).
 2. Set `STRIPE_DCT_PRICE_ID` to the Stripe `price_...` ID for that yearly subscription. `STRIPE_ANNUAL_PRICE_ID` is still supported as a fallback.
 3. Create a one-time €5 price for the CPD certificate.
 4. Set `STRIPE_CERTIFICATE_PRICE_ID` to that one-time certificate `price_...` ID.
@@ -63,10 +63,15 @@ npm run db:seed
 7. Set `STRIPE_WEBHOOK_SECRET`.
 8. Configure the Stripe Customer Portal.
 
-Current test price IDs:
+Current expected Stripe products:
 
-- DCT subscription: `price_1U3RnmAZEBTld7VM7nhMmr4F`
-- CPD certificate: `price_1U3RoGAZEBTld7VMW69kr45T`
+- DCT Survival Kit access: €20/year recurring subscription.
+- CPD certificate: €5 one-time payment.
+
+Current Stripe test price IDs:
+
+- DCT subscription: `price_1U3kODAZEBTld7VMTRuIctDg`
+- CPD certificate: `price_1U3kOEAZEBTld7VMW9K6m8mn`
 
 Stripe prices are immutable. If either amount changes, create a new Price in Stripe and update the matching Vercel env var.
 

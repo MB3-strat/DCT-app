@@ -21,7 +21,7 @@ export default function Register() {
     setBusy(true);
     try {
       await register(name, email, password);
-      toast.success("Account created. Check your email to confirm your account.");
+      toast.success("Account created. Confirm your email, then subscribe through Stripe to unlock the app.");
       navigate("/login", {
         replace: true,
         state: { checkEmail: true, email },
@@ -100,11 +100,11 @@ export default function Register() {
           disabled={!agree || busy}
           className="h-11 w-full rounded-full bg-brand-green font-semibold text-white transition-transform hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {busy ? "Please wait..." : "Create account"}
+          {busy ? "Please wait..." : "Create account, then subscribe"}
         </button>
         <p className="text-center text-xs text-muted-foreground">
-          Payment is completed through Stripe Checkout. A successful payment is
-          only recorded after Stripe sends a verified webhook.
+          The app requires a €20/year Stripe subscription. A successful payment
+          is only recorded after Stripe sends a verified webhook.
         </p>
       </form>
     </AuthShell>

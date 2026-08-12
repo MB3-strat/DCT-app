@@ -29,7 +29,7 @@ const FAQS = [
   },
   {
     q: "How much does it cost?",
-    a: "£20 per year (roughly £1.67 per month). One subscription unlocks every module and toolkit, offline support, and content updates for the year.",
+    a: "€20 per year (roughly €1.67 per month). One subscription unlocks every module and toolkit, offline support, and content updates for the year. The optional CPD certificate is a separate €5 one-time payment after completing all modules and the feedback form.",
   },
   {
     q: "What happens to my access if I don't renew?",
