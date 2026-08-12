@@ -35,7 +35,7 @@ export function DisclaimerGate({ onAccept }: { onAccept: () => void }) {
           I understand and accept
         </button>
         <p className="mt-3 text-center text-xs text-muted-foreground">
-          You will see this reminder each time you open or sign into the app.
+          You will see this reminder each time you start a new app session.
         </p>
       </section>
     </div>

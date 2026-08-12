@@ -8,10 +8,14 @@ import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
 
+const DISCLAIMER_SESSION_KEY = "dct:disclaimer-accepted";
+
 export function AppLayout() {
   const { isAuthed, isSubscribed, isAdmin, loading } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
+  const [disclaimerAccepted, setDisclaimerAccepted] = useState(
+    () => window.sessionStorage.getItem(DISCLAIMER_SESSION_KEY) === "true",
+  );
   const location = useLocation();
   const requireSubscription = import.meta.env.VITE_REQUIRE_SUBSCRIPTION === "true";
 
@@ -24,7 +28,14 @@ export function AppLayout() {
   }
 
   if (!disclaimerAccepted) {
-    return <DisclaimerGate onAccept={() => setDisclaimerAccepted(true)} />;
+    return (
+      <DisclaimerGate
+        onAccept={() => {
+          window.sessionStorage.setItem(DISCLAIMER_SESSION_KEY, "true");
+          setDisclaimerAccepted(true);
+        }}
+      />
+    );
   }
 
   if (requireSubscription && !isSubscribed && !isAdmin && location.pathname !== "/app/billing") {
