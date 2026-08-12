@@ -116,7 +116,7 @@ export default function FeedbackCpd() {
 
   if (!allModulesRead) {
     return (
-      <PageContainer className="max-w-3xl">
+      <PageContainer className="min-h-full max-w-3xl">
         <Link to="/app/modules" className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" /> Modules
         </Link>
@@ -140,7 +140,7 @@ export default function FeedbackCpd() {
   }
 
   return (
-    <PageContainer className="max-w-4xl">
+    <PageContainer className="min-h-full max-w-4xl">
       <Link to="/app/modules" className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-4 w-4" /> Modules
       </Link>
