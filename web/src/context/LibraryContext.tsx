@@ -34,6 +34,7 @@ interface LibraryValue {
   toggleRead: (id: string) => void;
   markRead: (id: string) => void;
   markAllRead: (ids: string[]) => void;
+  syncReadProgress: (ids: string[]) => Promise<void>;
   pushRecent: (id: string, kind: "module" | "toolkit") => void;
   clearRecent: () => void;
   checklistState: Record<string, number[]>;
@@ -152,6 +153,26 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     setRead((prev) => Array.from(new Set([...prev, ...ids])));
   }, []);
 
+  const syncReadProgress = useCallback(async (ids: string[]) => {
+    setRead((prev) => Array.from(new Set([...prev, ...ids])));
+
+    if (!supabase || !user || ids.length === 0) return;
+
+    const rows = ids.map((id) => ({
+      user_id: user.id,
+      content_id: id,
+      kind: id.startsWith("T") ? "toolkit" : "module",
+      read: true,
+      updated_at: new Date().toISOString(),
+    }));
+
+    const { error } = await supabase.from("progress").upsert(rows, {
+      onConflict: "user_id,content_id",
+    });
+
+    if (error) throw error;
+  }, [user]);
+
   const pushRecent = useCallback((id: string, kind: "module" | "toolkit") => {
     setRecent((prev) => {
       const filtered = prev.filter((r) => r.id !== id);
@@ -186,6 +207,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       toggleRead,
       markRead,
       markAllRead,
+      syncReadProgress,
       pushRecent,
       clearRecent,
       checklistState,
@@ -200,6 +222,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       toggleRead,
       markRead,
       markAllRead,
+      syncReadProgress,
       pushRecent,
       clearRecent,
       checklistState,

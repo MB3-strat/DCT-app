@@ -78,7 +78,7 @@ const EMPTY_FORM: FeedbackForm = {
 
 export default function FeedbackCpd() {
   const { user, session, refreshUser } = useAuth();
-  const { read, markAllRead } = useLibrary();
+  const { read, markAllRead, syncReadProgress } = useLibrary();
   const readModuleIds = useMemo(() => new Set(read.filter((id) => id.startsWith("M"))), [read]);
   const allModulesRead = readModuleIds.size >= MODULES.length;
   const [form, setForm] = useState<FeedbackForm>(() => readJSON<FeedbackForm>(STORAGE_KEY, EMPTY_FORM));
@@ -139,6 +139,8 @@ export default function FeedbackCpd() {
 
     setCertificateBusy(true);
     try {
+      await syncReadProgress(Array.from(readModuleIds));
+
       const response = await fetch("/api/stripe-certificate-checkout", {
         method: "POST",
         headers: { Authorization: `Bearer ${session.access_token}` },
