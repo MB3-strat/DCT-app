@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { Search, X } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+import { ClipboardCheck, Search, X } from "lucide-react";
 import { PageContainer, PageHeading } from "@/components/app/PageContainer";
 import { ModuleCard } from "@/components/ContentCard";
 import { MODULES } from "@/data/modules";
 import { CATEGORIES } from "@/data/meta";
+import { useLibrary } from "@/context/LibraryContext";
 import type { Category, Urgency } from "@/data/types";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +17,9 @@ export default function Modules() {
   const [cat, setCat] = useState<Category | "all">(catParam ?? "all");
   const [urgency, setUrgency] = useState<Urgency | "all">("all");
   const [q, setQ] = useState("");
+  const { read } = useLibrary();
+  const readModuleIds = new Set(read.filter((id) => id.startsWith("M")));
+  const allModulesRead = readModuleIds.size >= MODULES.length;
 
   const filtered = useMemo(() => {
     return MODULES.filter((m) => {
@@ -82,6 +86,28 @@ export default function Modules() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {cat === "all" && urgency === "all" && !q && allModulesRead && (
+            <Link
+              to="/app/feedback-cpd"
+              className="group relative flex min-w-0 flex-col overflow-hidden rounded-xl border border-brand-gold/45 bg-brand-gold/10 p-4 transition-all hover:border-brand-gold hover:shadow-[0_8px_24px_-12px_rgba(163,114,31,0.45)] focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <div className="mb-2 flex items-start justify-between gap-2">
+                <ClipboardCheck className="h-7 w-7 text-brand-gold-ink" />
+                <span className="rounded-full bg-brand-gold/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-gold-ink">
+                  Unlocked
+                </span>
+              </div>
+              <h3 className="break-words font-serif text-lg font-semibold leading-tight text-foreground">
+                Feedback &amp; CPD
+              </h3>
+              <p className="mt-1.5 line-clamp-2 text-sm text-muted-foreground">
+                Complete the feedback form after finishing all modules.
+              </p>
+              <div className="mt-auto pt-3 text-sm font-semibold text-brand-green">
+                Open form
+              </div>
+            </Link>
+          )}
           {filtered.map((m) => (
             <ModuleCard key={m.id} module={m} />
           ))}

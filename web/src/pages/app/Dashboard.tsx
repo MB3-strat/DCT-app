@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import {
   Siren, ArrowRight, Clock, Bookmark, WifiOff, RefreshCw,
-  ChevronRight, Sparkles,
+  ChevronRight, Sparkles, ClipboardCheck,
 } from "lucide-react";
 import { PageContainer } from "@/components/app/PageContainer";
 import { DisclaimerBanner } from "@/components/DisclaimerBanner";
@@ -103,6 +103,22 @@ export default function Dashboard() {
         </div>
         <Progress value={progressPercent} className="h-3" />
       </section>
+
+      {progressPercent === 100 && (
+        <Link
+          to="/app/feedback-cpd"
+          className="mb-6 flex min-w-0 items-center gap-4 rounded-xl border border-brand-gold/40 bg-brand-gold/10 p-5 transition-colors hover:border-brand-gold hover:bg-brand-gold/15"
+        >
+          <ClipboardCheck className="h-6 w-6 flex-shrink-0 text-brand-gold-ink" />
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-brand-gold-ink">Feedback &amp; CPD unlocked</div>
+            <div className="mt-0.5 text-sm text-brand-gold-ink/80">
+              Complete the short feedback form and CPD confirmation.
+            </div>
+          </div>
+          <ChevronRight className="ml-auto h-5 w-5 flex-shrink-0 text-brand-gold-ink" />
+        </Link>
+      )}
 
       {/* Status strip */}
       <div className="mb-8 grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-3">
