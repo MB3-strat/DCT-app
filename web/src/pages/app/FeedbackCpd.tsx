@@ -167,7 +167,15 @@ export default function FeedbackCpd() {
     setDownloadBusy(true);
     try {
       const response = await fetch("/api/certificate-download", {
-        headers: { Authorization: `Bearer ${session.access_token}` },
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          fullName: form.fullName.trim(),
+          registrationNumber: form.registrationNumber.trim(),
+        }),
       });
 
       if (!response.ok) {
