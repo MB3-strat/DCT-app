@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getAdminSupabase, getUserFromRequest } from "./_shared/supabase.js";
-import { getAppUrl, getStripe } from "./_shared/stripe.js";
+import { getAppUrl, getStripe, isMissingStripeResource } from "./_shared/stripe.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
@@ -27,10 +27,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
 
-    const session = await getStripe().billingPortal.sessions.create({
-      customer: profile.stripe_customer_id,
-      return_url: `${getAppUrl()}/app/billing`,
-    });
+    const stripe = getStripe();
+    let session;
+
+    try {
+      await stripe.customers.retrieve(profile.stripe_customer_id);
+      session = await stripe.billingPortal.sessions.create({
+        customer: profile.stripe_customer_id,
+        return_url: `${getAppUrl()}/app/billing`,
+      });
+    } catch (error) {
+      if (!isMissingStripeResource(error)) throw error;
+
+      await supabase
+        .from("profiles")
+        .update({
+          stripe_customer_id: null,
+          stripe_subscription_id: null,
+          subscription_status: "none",
+          subscription_current_period_end: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", user.id);
+
+      res.status(409).json({
+        error: "Your saved Stripe customer belonged to an old Stripe account. Start checkout again to create a fresh customer.",
+      });
+      return;
+    }
 
     res.status(200).json({ url: session.url });
   } catch (error) {

@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getAdminSupabase, getUserFromRequest } from "./_shared/supabase.js";
-import { getAppUrl, getStripe } from "./_shared/stripe.js";
+import { getAppUrl, getOrCreateStripeCustomer, getStripe } from "./_shared/stripe.js";
 
 const FALLBACK_MODULE_COUNT = 36;
 
@@ -53,16 +53,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
 
-    let customerId = profile?.stripe_customer_id as string | undefined;
-
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: user.email || undefined,
-        metadata: { supabase_user_id: user.id },
-      });
-      customerId = customer.id;
-      await supabase.from("profiles").update({ stripe_customer_id: customerId }).eq("id", user.id);
-    }
+    const customerId = await getOrCreateStripeCustomer({
+      stripe,
+      supabase,
+      user,
+      existingCustomerId: profile?.stripe_customer_id,
+    });
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
