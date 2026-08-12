@@ -12,6 +12,10 @@ import { getModuleById } from "@/data/modules";
 import { useLibrary } from "@/context/LibraryContext";
 import { cn } from "@/lib/utils";
 
+function isEmbeddedPdf(url: string): boolean {
+  return url.startsWith("/forms/") && url.toLowerCase().endsWith(".pdf");
+}
+
 export default function ToolkitDetail() {
   const { slug } = useParams();
   const toolkit = slug ? getToolkitBySlug(slug) : undefined;
@@ -110,18 +114,39 @@ export default function ToolkitDetail() {
 
           {toolkit.links && toolkit.links.length > 0 && (
             <div className="mt-6 grid gap-3">
-              {toolkit.links.map((link) => (
-                <a
-                  key={link.url}
-                  href={link.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 text-[15px] font-semibold transition-colors hover:border-brand-green/40 hover:bg-muted/50"
-                >
-                  <span className="min-w-0 flex-1 break-words">{link.label}</span>
-                  <ExternalLink className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                </a>
-              ))}
+              {toolkit.links.map((link) => {
+                const className = "flex items-center gap-3 rounded-xl border border-border bg-card p-4 text-[15px] font-semibold transition-colors hover:border-brand-green/40 hover:bg-muted/50";
+                const content = (
+                  <>
+                    <span className="min-w-0 flex-1 break-words">{link.label}</span>
+                    <ExternalLink className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                  </>
+                );
+
+                if (isEmbeddedPdf(link.url)) {
+                  return (
+                    <Link
+                      key={link.url}
+                      to={`/app/pdf-viewer?src=${encodeURIComponent(link.url)}&title=${encodeURIComponent(link.label)}`}
+                      className={className}
+                    >
+                      {content}
+                    </Link>
+                  );
+                }
+
+                return (
+                  <a
+                    key={link.url}
+                    href={link.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={className}
+                  >
+                    {content}
+                  </a>
+                );
+              })}
             </div>
           )}
 

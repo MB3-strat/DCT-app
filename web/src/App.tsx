@@ -33,6 +33,7 @@ import Modules from "./pages/app/Modules";
 import ModuleDetail from "./pages/app/ModuleDetail";
 import Toolkits from "./pages/app/Toolkits";
 import ToolkitDetail from "./pages/app/ToolkitDetail";
+import PdfViewer from "./pages/app/PdfViewer";
 import OnCall from "./pages/app/OnCall";
 import SearchPage from "./pages/app/SearchPage";
 import Bookmarks from "./pages/app/Bookmarks";
@@ -83,6 +84,7 @@ const App = () => (
                       <Route path="modules/:slug" element={<ModuleDetail />} />
                       <Route path="toolkits" element={<Toolkits />} />
                       <Route path="toolkits/:slug" element={<ToolkitDetail />} />
+                      <Route path="pdf-viewer" element={<PdfViewer />} />
                       <Route path="on-call" element={<OnCall />} />
                       <Route path="search" element={<SearchPage />} />
                       <Route path="bookmarks" element={<Bookmarks />} />
