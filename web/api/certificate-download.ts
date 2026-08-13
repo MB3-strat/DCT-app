@@ -102,7 +102,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       font,
       text: fullName,
       x: 179,
-      y: 567,
+      y: 573,
       width: 150,
       maxSize: 12,
     });
@@ -112,7 +112,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       font,
       text: registrationNumber,
       x: 409,
-      y: 567,
+      y: 573,
       width: 118,
       maxSize: 12,
     });

@@ -186,13 +186,29 @@ export default function FeedbackCpd() {
 
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = "DCT Survival Kit Certificate.pdf";
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
+      const filename = "DCT Survival Kit Certificate.pdf";
+
+      if (typeof document.createElement("a").download === "undefined") {
+        // Browsers/webviews without download-attribute support (older embedded
+        // webviews): fall back to opening the PDF so the user can save it manually.
+        window.open(url, "_blank", "noopener");
+        window.setTimeout(() => URL.revokeObjectURL(url), 10000);
+      } else {
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        link.rel = "noopener";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        // Safari reads the blob asynchronously after click(); revoking immediately
+        // can invalidate the URL before the download actually starts.
+        window.setTimeout(() => URL.revokeObjectURL(url), 2000);
+      }
+
+      toast.success("Certificate downloaded.");
+    } catch {
+      toast.error("Couldn't download the certificate. Check your connection and try again.");
     } finally {
       setDownloadBusy(false);
     }
