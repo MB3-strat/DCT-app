@@ -1,8 +1,7 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import { getAdminSupabase, getUserFromRequest } from "./_shared/supabase.js";
+import { CERTIFICATE_TEMPLATE_BASE64 } from "./assets/certificate-template.js";
 
 interface CertificateRequestBody {
   fullName?: unknown;
@@ -102,8 +101,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
 
-    const filePath = path.join(process.cwd(), "api/assets/dct-survival-kit-certificate.pdf");
-    const templatePdf = await readFile(filePath);
+    const templatePdf = Buffer.from(CERTIFICATE_TEMPLATE_BASE64, "base64");
     const certificate = await PDFDocument.load(templatePdf);
     const font = await certificate.embedFont(StandardFonts.Helvetica);
     const [page] = certificate.getPages();
