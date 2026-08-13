@@ -28,7 +28,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const [{ data: profile }, { count: moduleCount }, { count: completedCount }] = await Promise.all([
       supabase
         .from("profiles")
-        .select("stripe_customer_id,certificate_payment_status")
+        .select("stripe_customer_id,certificate_payment_status,roles,subscription_status")
         .eq("id", user.id)
         .maybeSingle(),
       supabase
@@ -44,6 +44,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (profile?.certificate_payment_status === "paid") {
       res.status(200).json({ url: `${getAppUrl()}/app/feedback-cpd?certificate=paid` });
+      return;
+    }
+
+    const roles = Array.isArray(profile?.roles) ? profile.roles : [];
+    const hasClinicalAccess =
+      profile?.subscription_status === "active" ||
+      profile?.subscription_status === "trialing" ||
+      roles.includes("admin");
+
+    if (!hasClinicalAccess) {
+      res.status(403).json({ error: "Active DCT Survival Kit subscription required before purchasing the CPD certificate." });
       return;
     }
 

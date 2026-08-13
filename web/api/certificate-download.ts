@@ -1,8 +1,7 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import { getAdminSupabase, getUserFromRequest } from "./_shared/supabase.js";
+import { CERTIFICATE_TEMPLATE_BASE64 } from "./assets/certificate-template.js";
 
 interface CertificateRequestBody {
   fullName?: unknown;
@@ -82,17 +81,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const supabase = getAdminSupabase();
     const { data: profile } = await supabase
       .from("profiles")
-      .select("certificate_payment_status")
+      .select("certificate_payment_status,roles,subscription_status")
       .eq("id", user.id)
       .maybeSingle();
+
+    const roles = Array.isArray(profile?.roles) ? profile.roles : [];
+    const hasClinicalAccess =
+      profile?.subscription_status === "active" ||
+      profile?.subscription_status === "trialing" ||
+      roles.includes("admin");
+
+    if (!hasClinicalAccess) {
+      res.status(403).json({ error: "Active DCT Survival Kit subscription required before downloading the CPD certificate." });
+      return;
+    }
 
     if (profile?.certificate_payment_status !== "paid") {
       res.status(403).json({ error: "Certificate payment is required before download." });
       return;
     }
 
-    const filePath = path.join(process.cwd(), "api/assets/dct-survival-kit-certificate.pdf");
-    const templatePdf = await readFile(filePath);
+    const templatePdf = Buffer.from(CERTIFICATE_TEMPLATE_BASE64, "base64");
     const certificate = await PDFDocument.load(templatePdf);
     const font = await certificate.embedFont(StandardFonts.Helvetica);
     const [page] = certificate.getPages();
