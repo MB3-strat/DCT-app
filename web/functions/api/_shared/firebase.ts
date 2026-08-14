@@ -36,7 +36,12 @@ export async function verifyIdToken(request: Request, projectId: string): Promis
       email: typeof payload.email === "string" ? payload.email : undefined,
       emailVerified: Boolean(payload.email_verified),
     };
-  } catch {
+  } catch (error) {
+    // TEMPORARY: surface the real reason in `wrangler pages deployment tail`
+    // instead of a bare 401 everywhere. Safe to log — this is jose's error
+    // name/message (e.g. "JWTClaimValidationFailed: unexpected \"iss\"
+    // claim"), never the token itself. Remove once verification is working.
+    console.error("verifyIdToken failed:", error instanceof Error ? `${error.name}: ${error.message}` : error);
     return null;
   }
 }
