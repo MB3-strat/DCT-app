@@ -7,15 +7,16 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { readJSON, writeJSON } from "@/lib/storage";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
 
 /**
  * Trust-specific settings entered by the user.
  * NOTHING here is prepopulated with invented information — every field
  * starts empty and must be confirmed by the user and their employing
- * organisation. Stored locally only.
+ * organisation. Stored locally, synced to profiles/{uid}.trustSettings.
  */
 export interface TrustSettings {
   trustName: string;
@@ -65,19 +66,15 @@ export function TrustProvider({ children }: { children: ReactNode }) {
   useEffect(() => writeJSON("trust", trust), [trust]);
 
   useEffect(() => {
-    if (!supabase || !user) return;
+    if (!db || !user) return;
 
     let cancelled = false;
 
     async function loadRemote() {
-      const { data } = await supabase
-        .from("trust_settings")
-        .select("settings")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (!cancelled && data?.settings) {
-        setTrust({ ...EMPTY_TRUST, ...(data.settings as Partial<TrustSettings>) });
+      const snap = await getDoc(doc(db!, "profiles", user!.id));
+      const remote = snap.data()?.trustSettings as Partial<TrustSettings> | undefined;
+      if (!cancelled && remote) {
+        setTrust({ ...EMPTY_TRUST, ...remote });
       }
     }
 
@@ -89,13 +86,13 @@ export function TrustProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   useEffect(() => {
-    if (!supabase || !user) return;
+    if (!db || !user) return;
 
-    void supabase.from("trust_settings").upsert({
-      user_id: user.id,
-      settings: trust,
-      updated_at: new Date().toISOString(),
-    });
+    void setDoc(
+      doc(db, "profiles", user.id),
+      { trustSettings: trust, updatedAt: serverTimestamp() },
+      { merge: true },
+    );
   }, [trust, user]);
 
   const update = useCallback((patch: Partial<TrustSettings>) => {

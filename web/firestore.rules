@@ -1,0 +1,37 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /profiles/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+
+      // Subscription/billing state (subscriptionStatus, stripeCustomerId,
+      // certificatePaymentStatus, etc.) intentionally does NOT live here —
+      // it lives in Cloudflare KV, owned exclusively by the Stripe webhook.
+      // `roles` (e.g. admin) stays here but is deliberately excluded from
+      // the client-writable field list below; it's only ever set by a
+      // human editing Firestore directly in the console.
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.roles == [];
+
+      allow update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['fullName', 'trustSettings', 'activeSessionId', 'activeSessionAt', 'updatedAt']);
+
+      match /bookmarks/{contentId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+
+      match /progress/{contentId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+    }
+
+    match /reportedIssues/{issueId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update, delete: if false;
+    }
+  }
+}

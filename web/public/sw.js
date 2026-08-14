@@ -3,7 +3,7 @@
  * Offline-first for the app shell and clinical content.
  * Security: never cache payment or authentication responses.
  */
-const CACHE = "dct-cache-v2";
+const CACHE = "dct-cache-v3";
 const APP_SHELL = ["/manifest.webmanifest", "/favicon.png", "/icon.png"];
 
 // Paths we must never cache (payments / auth / sensitive).

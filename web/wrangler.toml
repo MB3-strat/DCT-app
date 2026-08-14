@@ -1,0 +1,8 @@
+name = "dct-app"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-08-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[kv_namespaces]]
+binding = "SUBSCRIPTIONS"
+id = "5a7f9ff20b1b46319ff4192a5e41eae5"

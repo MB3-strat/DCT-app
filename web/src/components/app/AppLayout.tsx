@@ -73,7 +73,10 @@ export function AppLayout() {
 
       <div className={cn("flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-hidden bg-background")}>
         <AppHeader onOpenMenu={() => setMenuOpen(true)} />
-        <main className="min-h-0 min-w-0 max-w-full flex-1 overflow-y-auto overflow-x-hidden overscroll-contain bg-background pb-24 md:pb-8">
+        <main
+          id="app-scroll-container"
+          className="min-h-0 min-w-0 max-w-full flex-1 overflow-y-auto overflow-x-hidden overscroll-contain bg-background pb-24 md:pb-8"
+        >
           <Outlet />
         </main>
         <BottomNav />

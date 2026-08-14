@@ -4,11 +4,13 @@ import {
   User, Mail, BadgeCheck, CreditCard, WifiOff, FileWarning,
   Wrench, LogOut, ShieldCheck, FileText, BookOpen, Trash2,
 } from "lucide-react";
+import { collection, getDocs, doc, writeBatch, serverTimestamp } from "firebase/firestore";
 import { PageContainer, PageHeading } from "@/components/app/PageContainer";
 import { useAuth } from "@/context/AuthContext";
+import { db } from "@/lib/firebase";
 
 export default function Account() {
-  const { user, session, logout } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   if (!user) return null;
@@ -22,25 +24,35 @@ export default function Account() {
   };
 
   async function deleteAllInfo() {
-    if (!session?.access_token) {
+    if (!user || !db) {
       toast.error("Please sign in again before deleting data.");
       return;
     }
 
     const confirmed = window.confirm(
-      "Delete your bookmarks, progress, Trust settings and issue-report records? This cannot be undone.",
+      "Delete your bookmarks, progress and Trust settings? This cannot be undone. " +
+        "(Issue reports you've submitted are kept as an audit record.)",
     );
 
     if (!confirmed) return;
 
-    const response = await fetch("/api/delete-account-data", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
+    try {
+      const [bookmarksSnap, progressSnap] = await Promise.all([
+        getDocs(collection(db, "profiles", user.id, "bookmarks")),
+        getDocs(collection(db, "profiles", user.id, "progress")),
+      ]);
 
-    if (!response.ok) {
-      const payload = await response.json().catch(() => ({}));
-      toast.error(payload.error || "Could not delete your data.");
+      const batch = writeBatch(db);
+      bookmarksSnap.docs.forEach((d) => batch.delete(d.ref));
+      progressSnap.docs.forEach((d) => batch.delete(d.ref));
+      batch.set(
+        doc(db, "profiles", user.id),
+        { trustSettings: {}, updatedAt: serverTimestamp() },
+        { merge: true },
+      );
+      await batch.commit();
+    } catch {
+      toast.error("Could not delete your data.");
       return;
     }
 

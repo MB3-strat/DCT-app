@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft, Bookmark, BookmarkCheck, Check, AlertTriangle,
   FileWarning, ShieldQuestion,
@@ -19,8 +19,9 @@ function isRedFlag(heading: string): boolean {
 
 export default function ModuleDetail() {
   const { slug } = useParams();
+  const navigate = useNavigate();
   const module = slug ? getModuleBySlug(slug) : undefined;
-  const { isBookmarked, toggleBookmark, isRead, toggleRead, pushRecent, markRead } = useLibrary();
+  const { isBookmarked, toggleBookmark, pushRecent, markRead } = useLibrary();
 
   useEffect(() => {
     if (module) pushRecent(module.id, "module");
@@ -36,7 +37,6 @@ export default function ModuleDetail() {
   }
 
   const bookmarked = isBookmarked(module.id);
-  const read = isRead(module.id);
 
   return (
     <PageContainer className="max-w-4xl">
@@ -76,16 +76,6 @@ export default function ModuleDetail() {
         >
           {bookmarked ? <BookmarkCheck className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
           {bookmarked ? "Bookmarked" : "Bookmark"}
-        </button>
-        <button
-          onClick={() => toggleRead(module.id)}
-          aria-pressed={read}
-          className={cn(
-            "inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-colors",
-            read ? "border-success bg-success/12 text-success" : "border-border hover:bg-muted",
-          )}
-        >
-          <Check className="h-4 w-4" /> {read ? "Read" : "Mark as read"}
         </button>
         <Link to="/app/report/clinical" state={{ contentId: module.id, title: module.title }} className="ml-auto inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted">
           <FileWarning className="h-4 w-4" /> <span className="hidden sm:inline">Report issue</span>
@@ -147,7 +137,10 @@ export default function ModuleDetail() {
 
       <div className="mt-8 flex items-center justify-center">
         <button
-          onClick={() => markRead(module.id)}
+          onClick={() => {
+            markRead(module.id);
+            navigate("/app/modules");
+          }}
           className="inline-flex items-center gap-2 rounded-full bg-brand-green px-6 py-3 text-sm font-semibold text-white hover:bg-brand-green-mid"
         >
           <Check className="h-4 w-4" /> Mark complete &amp; continue

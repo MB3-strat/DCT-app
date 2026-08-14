@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, CheckCheck, CheckCircle2, CreditCard, Download, Lock, RefreshCw, Send, Star } from "lucide-react";
+import { ArrowLeft, CheckCircle2, CreditCard, Download, Lock, RefreshCw, Send, Star } from "lucide-react";
 import { PageContainer } from "@/components/app/PageContainer";
 import { DisclaimerBanner } from "@/components/DisclaimerBanner";
 import { Button } from "@/components/ui/button";
@@ -77,14 +77,14 @@ const EMPTY_FORM: FeedbackForm = {
 };
 
 export default function FeedbackCpd() {
-  const { user, session, refreshUser } = useAuth();
-  const { read, markAllRead, syncReadProgress } = useLibrary();
+  const { user, getIdToken, refreshUser } = useAuth();
+  const { read, syncReadProgress } = useLibrary();
   const readModuleIds = useMemo(() => new Set(read.filter((id) => id.startsWith("M"))), [read]);
   const allModulesRead = readModuleIds.size >= MODULES.length;
   const [form, setForm] = useState<FeedbackForm>(() => readJSON<FeedbackForm>(STORAGE_KEY, EMPTY_FORM));
   const [certificateBusy, setCertificateBusy] = useState(false);
   const [downloadBusy, setDownloadBusy] = useState(false);
-  const certificatePaid = user?.certificatePaymentStatus === "paid";
+  const certificatePaid = user?.certificatePurchased ?? false;
 
   useEffect(() => writeJSON(STORAGE_KEY, form), [form]);
 
@@ -97,7 +97,14 @@ export default function FeedbackCpd() {
     if (params.get("certificate") === "cancelled") {
       toast.message("Certificate payment was cancelled.");
     }
-  }, [refreshUser]);
+    if (params.has("certificate")) {
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+    // Runs once on mount to handle the Stripe redirect query param — must
+    // not re-run when refreshUser's identity changes, or the toast fires
+    // and re-fetches on every subsequent state update.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function update<K extends keyof FeedbackForm>(key: K, value: FeedbackForm[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -132,7 +139,8 @@ export default function FeedbackCpd() {
   }
 
   async function openCertificateCheckout() {
-    if (!session?.access_token) {
+    const idToken = await getIdToken();
+    if (!idToken) {
       toast.error("Please sign in again before opening certificate checkout.");
       return;
     }
@@ -143,7 +151,7 @@ export default function FeedbackCpd() {
 
       const response = await fetch("/api/stripe-certificate-checkout", {
         method: "POST",
-        headers: { Authorization: `Bearer ${session.access_token}` },
+        headers: { Authorization: `Bearer ${idToken}` },
       });
       const payload = await response.json();
 
@@ -159,7 +167,8 @@ export default function FeedbackCpd() {
   }
 
   async function downloadCertificate() {
-    if (!session?.access_token) {
+    const idToken = await getIdToken();
+    if (!idToken) {
       toast.error("Please sign in again before downloading the certificate.");
       return;
     }
@@ -169,7 +178,7 @@ export default function FeedbackCpd() {
       const response = await fetch("/api/certificate-download", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${idToken}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -234,14 +243,6 @@ export default function FeedbackCpd() {
               <div className="h-full bg-brand-green" style={{ width: `${Math.round((readModuleIds.size / MODULES.length) * 100)}%` }} />
             </div>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => markAllRead(MODULES.map((module) => module.id))}
-            className="mt-6 gap-1.5 rounded-full"
-          >
-            <CheckCheck className="h-4 w-4" /> Mark all as read
-          </Button>
         </div>
       </PageContainer>
     );

@@ -1,14 +1,13 @@
 import { Link } from "react-router-dom";
 import {
   Siren, ArrowRight, Clock, Bookmark, WifiOff, RefreshCw,
-  ChevronRight, Sparkles, ClipboardCheck, CheckCheck,
+  ChevronRight, Sparkles, ClipboardCheck,
 } from "lucide-react";
 import { PageContainer } from "@/components/app/PageContainer";
 import { DisclaimerBanner } from "@/components/DisclaimerBanner";
 import { ModuleCard, ToolkitCard } from "@/components/ContentCard";
 import { UrgencyBadge } from "@/components/UrgencyBadge";
 import { Progress } from "@/components/ui/progress";
-import { Button } from "@/components/ui/button";
 import { CATEGORIES, PRODUCT } from "@/data/meta";
 import { MODULES, getModuleById } from "@/data/modules";
 import { TOOLKITS, getToolkitById } from "@/data/toolkits";
@@ -25,7 +24,7 @@ function greeting(): string {
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { recent, bookmarks, read, markAllRead } = useLibrary();
+  const { recent, bookmarks, read } = useLibrary();
   const { online, contentVersion, lastSync } = useOffline();
 
   const firstName = user?.name?.split(" ")[0] ?? "Doctor";
@@ -96,17 +95,6 @@ export default function Dashboard() {
             <h2 className="font-serif text-xl font-semibold">Modules completed</h2>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            {progressPercent < 100 && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => markAllRead(MODULES.map((module) => module.id))}
-                className="w-full gap-1.5 rounded-full sm:w-auto"
-              >
-                <CheckCheck className="h-4 w-4" /> Mark all as read
-              </Button>
-            )}
             <div className="text-right">
               <div className="font-serif text-3xl font-semibold">{progressPercent}%</div>
               <div className="text-xs text-muted-foreground">

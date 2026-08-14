@@ -20,15 +20,23 @@ export default function Register() {
     if (!email || !password || !agree) return;
     setBusy(true);
     try {
-      await register(name, email, password);
-      toast.success("Account created. Confirm your email, then subscribe through Stripe to unlock the app.");
-      navigate("/login", {
-        replace: true,
-        state: { checkEmail: true, email },
+      const idToken = await register(name, email, password);
+
+      const response = await fetch("/api/stripe-checkout", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${idToken}` },
       });
+      const payload = await response.json();
+
+      if (!response.ok || !payload.url) {
+        toast.error(payload.error || "Account created, but checkout couldn't start — subscribe from your account page.");
+        navigate("/app/billing", { replace: true });
+        return;
+      }
+
+      window.location.assign(payload.url);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to create account.");
-    } finally {
       setBusy(false);
     }
   }
@@ -100,7 +108,7 @@ export default function Register() {
           disabled={!agree || busy}
           className="h-11 w-full rounded-full bg-brand-green font-semibold text-white transition-transform hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {busy ? "Please wait..." : "Create account, then subscribe"}
+          {busy ? "Redirecting to checkout..." : "Create account & subscribe"}
         </button>
         <p className="text-center text-xs text-muted-foreground">
           The app requires a €20/year Stripe subscription. A successful payment

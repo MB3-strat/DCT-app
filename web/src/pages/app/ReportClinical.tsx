@@ -2,12 +2,14 @@ import { useState } from "react";
 import { useLocation, Link } from "react-router-dom";
 import { toast } from "sonner";
 import { ArrowLeft, FileWarning, AlertTriangle, Send, CheckCircle2 } from "lucide-react";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { PageContainer, PageHeading } from "@/components/app/PageContainer";
 import { Checkbox } from "@/components/ui/checkbox";
 import { MODULES } from "@/data/modules";
 import { TOOLKITS } from "@/data/toolkits";
 import { PRODUCT } from "@/data/meta";
 import { useAuth } from "@/context/AuthContext";
+import { db } from "@/lib/firebase";
 
 const CATEGORIES = [
   "Incorrect dose or threshold",
@@ -20,7 +22,7 @@ const CATEGORIES = [
 ];
 
 export default function ReportClinical() {
-  const { session } = useAuth();
+  const { user } = useAuth();
   const location = useLocation();
   const preset = (location.state as { contentId?: string; title?: string } | null) ?? null;
   const [contentId, setContentId] = useState(preset?.contentId ?? "");
@@ -37,30 +39,29 @@ export default function ReportClinical() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const response = await fetch("/api/report-issue", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
-      },
-      body: JSON.stringify({
+    if (!user || !db) {
+      toast.error("Please sign in again before submitting a report.");
+      return;
+    }
+
+    try {
+      await addDoc(collection(db, "reportedIssues"), {
+        userId: user.id,
         issueType: "clinical",
         contentId,
         title: `${category}${section ? ` · ${section}` : ""}`,
         description,
         url: window.location.href,
         contactOk,
-      }),
-    });
-
-    if (!response.ok) {
-      const payload = await response.json().catch(() => ({}));
-      toast.error(payload.error || "Unable to submit report.");
-      return;
+        status: "open",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      setDone(true);
+      toast.success("Clinical issue submitted for review.");
+    } catch {
+      toast.error("Unable to submit report.");
     }
-
-    setDone(true);
-    toast.success("Clinical issue submitted for review.");
   }
 
   if (done) {

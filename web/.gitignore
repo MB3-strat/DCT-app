@@ -8,6 +8,10 @@ dist-ssr
 # env
 .env
 *.local
+.dev.vars
+
+# Cloudflare
+.wrangler
 
 # Native
 ios/

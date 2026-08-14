@@ -6,20 +6,21 @@ import { PRODUCT } from "@/data/meta";
 import { toast } from "sonner";
 
 export default function Billing() {
-  const { user, session, refreshUser, logout } = useAuth();
+  const { user, getIdToken, refreshUser, logout } = useAuth();
   if (!user) return null;
   const hasStripeCustomer = Boolean(user.stripeCustomerId);
   const hasPaidSubscription = user.subscription === "active" || user.subscription === "trialing";
 
   async function openStripe(path: "/api/stripe-checkout" | "/api/stripe-portal") {
-    if (!session?.access_token) {
+    const idToken = await getIdToken();
+    if (!idToken) {
       toast.error("Please sign in again before opening billing.");
       return;
     }
 
     const response = await fetch(path, {
       method: "POST",
-      headers: { Authorization: `Bearer ${session.access_token}` },
+      headers: { Authorization: `Bearer ${idToken}` },
     });
     const payload = await response.json();
 

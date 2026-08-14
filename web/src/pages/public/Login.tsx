@@ -91,7 +91,7 @@ export default function Login() {
           {busy ? "Please wait..." : "Sign in"}
         </button>
         <p className="text-center text-xs text-muted-foreground">
-          Access is verified through Supabase and subscription status is updated
+          Access is verified through Firebase and subscription status is updated
           by Stripe webhook events.
         </p>
       </form>
