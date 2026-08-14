@@ -1,17 +1,20 @@
+import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
 import {
   User, Mail, BadgeCheck, CreditCard, WifiOff, FileWarning,
   Wrench, LogOut, ShieldCheck, FileText, BookOpen, Trash2,
 } from "lucide-react";
-import { collection, getDocs, doc, writeBatch, serverTimestamp } from "firebase/firestore";
+import { collection, getDocs, doc, deleteDoc, writeBatch, query, where } from "firebase/firestore";
+import { deleteUser } from "firebase/auth";
 import { PageContainer, PageHeading } from "@/components/app/PageContainer";
 import { useAuth } from "@/context/AuthContext";
 import { db } from "@/lib/firebase";
 
 export default function Account() {
-  const { user, logout } = useAuth();
+  const { user, firebaseUser, logout, getIdToken } = useAuth();
   const navigate = useNavigate();
+  const [deleting, setDeleting] = useState(false);
 
   if (!user) return null;
 
@@ -23,47 +26,82 @@ export default function Account() {
     none: "No subscription",
   };
 
-  async function deleteAllInfo() {
-    if (!user || !db) {
-      toast.error("Please sign in again before deleting data.");
+  // Full account deletion (GDPR/UK GDPR right to erasure) — not just an app
+  // data reset. Order matters: everything that needs the current sign-in
+  // session runs first; deleteUser() runs last since it invalidates that
+  // session immediately. Every step here is safe to retry (deleting an
+  // already-deleted doc/KV key is a no-op), so if this fails partway —
+  // most commonly Firebase requiring a recent login for account deletion —
+  // the user can sign in again and immediately retry without side effects.
+  async function deleteAccount() {
+    if (!user || !firebaseUser || !db) {
+      toast.error("Please sign in again before deleting your account.");
       return;
     }
 
     const confirmed = window.confirm(
-      "Delete your bookmarks, progress and Trust settings? This cannot be undone. " +
-        "(Issue reports you've submitted are kept as an audit record.)",
+      "Permanently delete your account and all your data? This cannot be undone. " +
+        "Your profile, bookmarks, progress and subscription record will all be removed. " +
+        "(Issue reports you've submitted are kept for safety auditing, but will no longer be linked to your account.)",
     );
 
     if (!confirmed) return;
 
+    setDeleting(true);
     try {
+      const idToken = await getIdToken();
+      if (!idToken) throw new Error("Please sign in again before deleting your account.");
+
+      // The one piece of data this app can't reach from the client —
+      // the Cloudflare KV subscription/billing record.
+      const response = await fetch("/api/delete-account", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || "Could not delete your subscription record.");
+      }
+
+      // Sever the link from any issue reports back to this account, without
+      // deleting the reports themselves (kept as an audit/safety record).
+      const issuesSnap = await getDocs(query(collection(db, "reportedIssues"), where("userId", "==", user.id)));
+      if (!issuesSnap.empty) {
+        const anonymizeBatch = writeBatch(db);
+        issuesSnap.docs.forEach((d) => anonymizeBatch.update(d.ref, { userId: null }));
+        await anonymizeBatch.commit();
+      }
+
+      // Delete bookmarks + progress subcollections, then the profile doc itself.
       const [bookmarksSnap, progressSnap] = await Promise.all([
         getDocs(collection(db, "profiles", user.id, "bookmarks")),
         getDocs(collection(db, "profiles", user.id, "progress")),
       ]);
+      const deleteBatch = writeBatch(db);
+      bookmarksSnap.docs.forEach((d) => deleteBatch.delete(d.ref));
+      progressSnap.docs.forEach((d) => deleteBatch.delete(d.ref));
+      await deleteBatch.commit();
+      await deleteDoc(doc(db, "profiles", user.id));
 
-      const batch = writeBatch(db);
-      bookmarksSnap.docs.forEach((d) => batch.delete(d.ref));
-      progressSnap.docs.forEach((d) => batch.delete(d.ref));
-      batch.set(
-        doc(db, "profiles", user.id),
-        { trustSettings: {}, updatedAt: serverTimestamp() },
-        { merge: true },
-      );
-      await batch.commit();
-    } catch {
-      toast.error("Could not delete your data.");
-      return;
-    }
-
-    for (const key of Object.keys(window.localStorage)) {
-      if (key.startsWith("dct:")) {
-        window.localStorage.removeItem(key);
+      for (const key of Object.keys(window.localStorage)) {
+        if (key.startsWith("dct:")) window.localStorage.removeItem(key);
       }
-    }
 
-    toast.success("Your app data has been deleted.");
-    window.location.reload();
+      // Last step, deliberately — invalidates the session everything above
+      // relied on.
+      await deleteUser(firebaseUser);
+
+      toast.success("Your account and all your data have been deleted.");
+      navigate("/", { replace: true });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("auth/requires-recent-login")) {
+        toast.error("For security, please sign out, sign back in, and try deleting your account again right away.");
+      } else {
+        toast.error(error instanceof Error ? error.message : "Could not delete your account. Please try again.");
+      }
+    } finally {
+      setDeleting(false);
+    }
   }
 
   return (
@@ -135,10 +173,11 @@ export default function Account() {
         <LogOut className="h-4 w-4" /> Sign out
       </button>
       <button
-        onClick={deleteAllInfo}
-        className="ml-3 mt-8 inline-flex items-center gap-2 rounded-full border border-destructive/30 px-5 py-2.5 font-semibold text-destructive hover:bg-destructive/10"
+        onClick={deleteAccount}
+        disabled={deleting}
+        className="ml-3 mt-8 inline-flex items-center gap-2 rounded-full border border-destructive/30 px-5 py-2.5 font-semibold text-destructive hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <Trash2 className="h-4 w-4" /> Delete all info
+        <Trash2 className="h-4 w-4" /> {deleting ? "Deleting account..." : "Delete account"}
       </button>
     </PageContainer>
   );

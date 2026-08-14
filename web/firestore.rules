@@ -19,6 +19,10 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['fullName', 'trustSettings', 'activeSessionId', 'activeSessionAt', 'updatedAt']);
 
+      // Account deletion (GDPR/UK GDPR right to erasure): the owner can
+      // delete their own profile document outright.
+      allow delete: if request.auth != null && request.auth.uid == uid;
+
       match /bookmarks/{contentId} {
         allow read, write: if request.auth != null && request.auth.uid == uid;
       }
@@ -31,7 +35,16 @@ service cloud.firestore {
     match /reportedIssues/{issueId} {
       allow read: if request.auth != null && request.auth.uid == resource.data.userId;
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
-      allow update, delete: if false;
+
+      // Reports are kept as a safety/audit record even after the
+      // submitter's account is deleted, but the owner can sever the link
+      // back to their identity at deletion time — narrowly scoped to
+      // exactly that one field, set to exactly null, nothing else.
+      allow update: if request.auth != null && request.auth.uid == resource.data.userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['userId'])
+        && request.resource.data.userId == null;
+
+      allow delete: if false;
     }
   }
 }
