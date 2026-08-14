@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, CreditCard, Download, Lock, RefreshCw, Send, Star } from "lucide-react";
+import { ArrowLeft, CheckCircle2, CreditCard, Download, Loader2, Lock, RefreshCw, Send, Star } from "lucide-react";
 import { PageContainer } from "@/components/app/PageContainer";
 import { DisclaimerBanner } from "@/components/DisclaimerBanner";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,8 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 const STORAGE_KEY = "feedback-cpd";
+const POLL_INTERVAL_MS = 1500;
+const MAX_POLL_ATTEMPTS = 6;
 
 const USEFULNESS = ["Extremely useful", "Very useful", "Useful", "Somewhat useful", "Not useful"];
 const SECTIONS = [
@@ -84,6 +86,7 @@ export default function FeedbackCpd() {
   const [form, setForm] = useState<FeedbackForm>(() => readJSON<FeedbackForm>(STORAGE_KEY, EMPTY_FORM));
   const [certificateBusy, setCertificateBusy] = useState(false);
   const [downloadBusy, setDownloadBusy] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const certificatePaid = user?.certificatePurchased ?? false;
 
   useEffect(() => writeJSON(STORAGE_KEY, form), [form]);
@@ -91,8 +94,8 @@ export default function FeedbackCpd() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("certificate") === "success") {
-      toast.success("Certificate payment received. Refreshing status...");
-      void refreshUser();
+      toast.success("Payment received — confirming your certificate...");
+      setConfirming(true);
     }
     if (params.get("certificate") === "cancelled") {
       toast.message("Certificate payment was cancelled.");
@@ -105,6 +108,43 @@ export default function FeedbackCpd() {
     // and re-fetches on every subsequent state update.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // This is a one-time payment (mode: "payment"), not a subscription — if the
+  // webhook lags and the user impatiently clicks "Pay €5" again before
+  // certificatePurchased flips to true, that creates a *second real Stripe
+  // charge*, not just a stale UI state. Poll a few times after the redirect
+  // and keep the checkout button disabled the whole time it could still be
+  // in flight (see the `confirming ||` guard below).
+  useEffect(() => {
+    if (!confirming) return;
+    if (certificatePaid) {
+      setConfirming(false);
+      toast.success("Certificate unlocked — you can download it now.");
+      return;
+    }
+
+    let cancelled = false;
+    let attempts = 0;
+    let timeoutId: number;
+
+    const poll = async () => {
+      attempts += 1;
+      await refreshUser();
+      if (cancelled) return;
+      if (attempts >= MAX_POLL_ATTEMPTS) {
+        setConfirming(false);
+        return;
+      }
+      timeoutId = window.setTimeout(poll, POLL_INTERVAL_MS);
+    };
+
+    timeoutId = window.setTimeout(poll, POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [confirming, certificatePaid]);
 
   function update<K extends keyof FeedbackForm>(key: K, value: FeedbackForm[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -367,20 +407,30 @@ export default function FeedbackCpd() {
                 <Button
                   type="button"
                   onClick={openCertificateCheckout}
-                  disabled={!form.submitted || certificateBusy}
+                  disabled={!form.submitted || certificateBusy || confirming}
                   className="gap-2 rounded-full"
                 >
-                  <CreditCard className="h-4 w-4" /> {certificateBusy ? "Opening..." : "Pay €5"}
+                  <CreditCard className="h-4 w-4" />
+                  {confirming ? "Confirming payment..." : certificateBusy ? "Opening..." : "Pay €5"}
                 </Button>
               )}
             </div>
 
+            {confirming && (
+              <div className="mt-3 flex items-start gap-2 rounded-lg border border-brand-green/40 bg-brand-green/10 px-3 py-2 text-brand-green">
+                <Loader2 className="mt-0.5 h-4 w-4 flex-shrink-0 animate-spin" />
+                <p className="text-xs">
+                  Confirming your payment with Stripe — this usually takes a couple of seconds. The button stays
+                  disabled until this finishes, so you won't be charged twice.
+                </p>
+              </div>
+            )}
             {!form.submitted && (
               <p className="mt-3 text-xs text-muted-foreground">
                 Save the feedback form first, then the certificate payment button will unlock.
               </p>
             )}
-            {!certificatePaid && form.submitted && (
+            {!certificatePaid && form.submitted && !confirming && (
               <button
                 type="button"
                 onClick={() => refreshUser()}
