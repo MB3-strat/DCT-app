@@ -13,8 +13,7 @@
     "test": "vitest run && vitest run --config vitest.browser.config.ts",
     "test:browser": "vitest --config vitest.browser.config.ts",
     "test:browser:run": "vitest run --config vitest.browser.config.ts",
-    "test:watch": "vitest",
-    "db:seed": "tsx scripts/seed-supabase.ts"
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
