@@ -17,8 +17,13 @@ export function getStripe(env: Env) {
   });
 }
 
-export function getAppUrl(env: Env) {
-  return env.APP_URL || "http://localhost:8788";
+// Prefer an explicit APP_URL (set this in production so redirects always
+// land on the canonical domain regardless of proxy/Host headers). If it's
+// unset — the common case for local dev — fall back to the origin the
+// request actually came in on, so Stripe redirects always land back on
+// whatever host/port you're really running on instead of a hardcoded guess.
+export function getAppUrl(env: Env, request: Request) {
+  return env.APP_URL || new URL(request.url).origin;
 }
 
 export function isMissingStripeResource(error: unknown) {

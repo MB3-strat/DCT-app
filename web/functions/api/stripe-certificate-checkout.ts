@@ -23,7 +23,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const record = await getSubscriptionRecord(env.SUBSCRIPTIONS, user.uid);
 
     if (record.certificatePaymentStatus === "paid") {
-      return Response.json({ url: `${getAppUrl(env)}/app/feedback-cpd?certificate=paid` });
+      return Response.json({ url: `${getAppUrl(env, request)}/app/feedback-cpd?certificate=paid` });
     }
 
     const hasClinicalAccess =
@@ -54,8 +54,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       mode: "payment",
       customer: customerId,
       line_items: [{ price: env.STRIPE_CERTIFICATE_PRICE_ID, quantity: 1 }],
-      success_url: `${getAppUrl(env)}/app/feedback-cpd?certificate=success`,
-      cancel_url: `${getAppUrl(env)}/app/feedback-cpd?certificate=cancelled`,
+      success_url: `${getAppUrl(env, request)}/app/feedback-cpd?certificate=success`,
+      cancel_url: `${getAppUrl(env, request)}/app/feedback-cpd?certificate=cancelled`,
       allow_promotion_codes: true,
       metadata: { firebase_uid: user.uid, checkout_kind: "certificate" },
       payment_intent_data: { metadata: { firebase_uid: user.uid, checkout_kind: "certificate" } },

@@ -1,12 +1,73 @@
-import { ArrowLeft, CreditCard, Check, ExternalLink, ShieldAlert, XCircle, LogOut } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowLeft, CreditCard, Check, ExternalLink, Loader2, ShieldAlert, XCircle, LogOut } from "lucide-react";
 import { Link } from "react-router-dom";
 import { PageContainer, PageHeading } from "@/components/app/PageContainer";
 import { useAuth } from "@/context/AuthContext";
 import { PRODUCT } from "@/data/meta";
 import { toast } from "sonner";
 
+const POLL_INTERVAL_MS = 1500;
+const MAX_POLL_ATTEMPTS = 6;
+
 export default function Billing() {
   const { user, getIdToken, refreshUser, logout } = useAuth();
+  const [confirming, setConfirming] = useState(false);
+
+  // Firebase Auth persists the sign-in across the redirect to Stripe and
+  // back, so a user who just registered/logged in and completed checkout
+  // lands here already authenticated — no second login required. What can
+  // lag is *subscription* status: Stripe's checkout.session.completed event
+  // and the customer.subscription.created event that actually flips
+  // subscriptionStatus to "active" can arrive a beat apart, so the page can
+  // briefly show a stale "none" status. Poll a few times instead of making
+  // the user click "Refresh" themselves.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("checkout") === "cancelled") {
+      toast.message("Checkout was cancelled.");
+    }
+    if (params.get("checkout") === "success") {
+      toast.success("Payment received — confirming your subscription...");
+      setConfirming(true);
+    }
+    if (params.has("checkout")) {
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+    // Runs once on mount to handle the Stripe redirect query param.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!confirming) return;
+    if (user && (user.subscription === "active" || user.subscription === "trialing")) {
+      setConfirming(false);
+      toast.success("You're subscribed — welcome in.");
+      return;
+    }
+
+    let cancelled = false;
+    let attempts = 0;
+    let timeoutId: number;
+
+    const poll = async () => {
+      attempts += 1;
+      await refreshUser();
+      if (cancelled) return;
+      if (attempts >= MAX_POLL_ATTEMPTS) {
+        setConfirming(false);
+        return;
+      }
+      timeoutId = window.setTimeout(poll, POLL_INTERVAL_MS);
+    };
+
+    timeoutId = window.setTimeout(poll, POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [confirming, user?.subscription]);
+
   if (!user) return null;
   const hasStripeCustomer = Boolean(user.stripeCustomerId);
   const hasPaidSubscription = user.subscription === "active" || user.subscription === "trialing";
@@ -38,6 +99,13 @@ export default function Billing() {
         <ArrowLeft className="h-4 w-4" /> Account
       </Link>
       <PageHeading kicker="Subscription" title="Billing" description="Manage your annual subscription through Stripe." />
+
+      {confirming && (
+        <div className="mb-6 flex items-start gap-2.5 rounded-lg border border-brand-green/40 bg-brand-green/10 px-4 py-3 text-brand-green">
+          <Loader2 className="mt-0.5 h-5 w-5 flex-shrink-0 animate-spin" />
+          <p className="text-sm">Confirming your subscription with Stripe — this usually takes a couple of seconds.</p>
+        </div>
+      )}
 
       <div className="mb-6 flex items-start gap-2.5 rounded-lg border border-brand-gold/40 bg-brand-gold/10 px-4 py-3 text-brand-gold-ink">
         <ShieldAlert className="mt-0.5 h-5 w-5 flex-shrink-0" />

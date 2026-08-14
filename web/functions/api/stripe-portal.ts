@@ -26,7 +26,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       await stripe.customers.retrieve(record.stripeCustomerId);
       const session = await stripe.billingPortal.sessions.create({
         customer: record.stripeCustomerId,
-        return_url: `${getAppUrl(env)}/app/billing`,
+        return_url: `${getAppUrl(env, request)}/app/billing`,
       });
       return Response.json({ url: session.url });
     } catch (error) {
