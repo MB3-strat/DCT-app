@@ -5,4 +5,4 @@ compatibility_flags = ["nodejs_compat"]
 
 [[kv_namespaces]]
 binding = "SUBSCRIPTIONS"
-id = "5a7f9ff20b1b46319ff4192a5e41eae5"
+id = "0a1a86bc02ca4269bc4d3965994a5a02"
