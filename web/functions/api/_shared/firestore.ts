@@ -6,7 +6,25 @@
 
 type FirestoreValue = Record<string, unknown>;
 
-function decodeValue(value: any): unknown {
+// The Firestore REST API's typed-value JSON shape — a document field is
+// always exactly one of these variants.
+interface FirestoreRawValue {
+  stringValue?: string;
+  integerValue?: string;
+  doubleValue?: number;
+  booleanValue?: boolean;
+  timestampValue?: string;
+  nullValue?: null;
+  arrayValue?: { values?: FirestoreRawValue[] };
+  mapValue?: { fields?: Record<string, FirestoreRawValue> };
+}
+
+interface FirestoreRawDocument {
+  name: string;
+  fields?: Record<string, FirestoreRawValue>;
+}
+
+function decodeValue(value: FirestoreRawValue): unknown {
   if (value == null) return null;
   if ("stringValue" in value) return value.stringValue;
   if ("integerValue" in value) return Number(value.integerValue);
@@ -14,16 +32,16 @@ function decodeValue(value: any): unknown {
   if ("booleanValue" in value) return value.booleanValue;
   if ("timestampValue" in value) return value.timestampValue;
   if ("nullValue" in value) return null;
-  if ("arrayValue" in value) return (value.arrayValue.values ?? []).map(decodeValue);
-  if ("mapValue" in value) return decodeFields(value.mapValue.fields ?? {});
+  if ("arrayValue" in value) return (value.arrayValue?.values ?? []).map(decodeValue);
+  if ("mapValue" in value) return decodeFields(value.mapValue?.fields ?? {});
   return null;
 }
 
-function decodeFields(fields: Record<string, any>): FirestoreValue {
+function decodeFields(fields: Record<string, FirestoreRawValue>): FirestoreValue {
   return Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, decodeValue(value)]));
 }
 
-function decodeDocument(doc: { name: string; fields?: Record<string, any> }): FirestoreValue {
+function decodeDocument(doc: FirestoreRawDocument): FirestoreValue {
   const id = doc.name.split("/").pop() ?? "";
   return { id, ...decodeFields(doc.fields ?? {}) };
 }
@@ -58,6 +76,6 @@ export async function listDocs(
 
   if (!response.ok) throw new Error(`Firestore listDocs failed: ${response.status}`);
 
-  const data = (await response.json()) as { documents?: any[] };
+  const data = (await response.json()) as { documents?: FirestoreRawDocument[] };
   return (data.documents ?? []).map(decodeDocument);
 }

@@ -47,6 +47,11 @@ function drawFittedText({
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   try {
+    const user = await verifyIdToken(request, env.FIREBASE_PROJECT_ID);
+    if (!user) {
+      return Response.json({ error: "Authentication required" }, { status: 401 });
+    }
+
     const body = (await request.json().catch(() => ({}))) as CertificateRequestBody;
     const fullName = cleanText(body.fullName);
     const registrationNumber = cleanText(body.registrationNumber);
@@ -56,11 +61,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         { error: "Certificate name and GDC/GMC number are required." },
         { status: 400 },
       );
-    }
-
-    const user = await verifyIdToken(request, env.FIREBASE_PROJECT_ID);
-    if (!user) {
-      return Response.json({ error: "Authentication required" }, { status: 401 });
     }
 
     const idToken = getBearerToken(request)!;
