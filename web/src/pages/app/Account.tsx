@@ -10,6 +10,7 @@ import { deleteUser } from "firebase/auth";
 import { PageContainer, PageHeading } from "@/components/app/PageContainer";
 import { useAuth } from "@/context/AuthContext";
 import { db } from "@/lib/firebase";
+import { friendlyAuthError } from "@/lib/authErrors";
 
 export default function Account() {
   const { user, firebaseUser, logout, getIdToken } = useAuth();
@@ -94,11 +95,7 @@ export default function Account() {
       toast.success("Your account and all your data have been deleted.");
       navigate("/", { replace: true });
     } catch (error) {
-      if (error instanceof Error && error.message.includes("auth/requires-recent-login")) {
-        toast.error("For security, please sign out, sign back in, and try deleting your account again right away.");
-      } else {
-        toast.error(error instanceof Error ? error.message : "Could not delete your account. Please try again.");
-      }
+      toast.error(friendlyAuthError(error, "Could not delete your account. Please try again."));
     } finally {
       setDeleting(false);
     }

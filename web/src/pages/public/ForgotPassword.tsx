@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { AuthShell } from "@/components/public/AuthShell";
 import { auth, getRedirectUrl } from "@/lib/firebase";
+import { friendlyAuthError } from "@/lib/authErrors";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -30,9 +31,7 @@ export default function ForgotPassword() {
       // a real problem (rate limit, bad config, network), not "user doesn't
       // exist." Surface it instead of silently hiding it.
       console.error("sendPasswordResetEmail failed:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Couldn't send the reset email. Try again shortly.",
-      );
+      toast.error(friendlyAuthError(error, "Couldn't send the reset email. Try again shortly."));
     } finally {
       setBusy(false);
     }

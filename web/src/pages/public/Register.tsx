@@ -5,6 +5,7 @@ import { AuthShell } from "@/components/public/AuthShell";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/context/AuthContext";
 import { PRODUCT } from "@/data/meta";
+import { friendlyAuthError } from "@/lib/authErrors";
 
 export default function Register() {
   const { register } = useAuth();
@@ -36,7 +37,7 @@ export default function Register() {
 
       window.location.assign(payload.url);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Unable to create account.");
+      toast.error(friendlyAuthError(error, "Unable to create account. Please try again."));
       setBusy(false);
     }
   }
