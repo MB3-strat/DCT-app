@@ -86,6 +86,11 @@ interface AuthValue {
   // genuine second charge, not just a UI glitch.
   confirmSubscriptionAfterCheckout: () => void;
   confirmCertificateAfterCheckout: () => void;
+  // Re-sends the verification link Firebase sent at registration. Nothing
+  // in the app currently blocks on emailVerified (see EmailVerificationBanner
+  // for the nag-only reminder that uses this) — this just lets a user who
+  // missed/lost the original email get a fresh one without re-registering.
+  resendVerificationEmail: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthValue | null>(null);
@@ -268,6 +273,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return cred.user.getIdToken();
   }, []);
 
+  const resendVerificationEmail = useCallback(async () => {
+    if (!firebaseUser) throw new Error("Please sign in again before resending the verification email.");
+    await sendEmailVerification(firebaseUser, {
+      url: getRedirectUrl("/app"),
+      handleCodeInApp: true,
+    });
+  }, [firebaseUser]);
+
   const sendMagicLink = useCallback(async (email: string) => {
     if (!auth) throw new Error("Firebase is not configured.");
     await sendSignInLinkToEmail(auth, email, {
@@ -381,6 +394,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       getIdToken,
       confirmSubscriptionAfterCheckout,
       confirmCertificateAfterCheckout,
+      resendVerificationEmail,
     }),
     [
       user,
@@ -396,6 +410,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       getIdToken,
       confirmSubscriptionAfterCheckout,
       confirmCertificateAfterCheckout,
+      resendVerificationEmail,
     ],
   );
 

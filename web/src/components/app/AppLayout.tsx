@@ -4,6 +4,7 @@ import { AppSidebar } from "./AppSidebar";
 import { AppHeader } from "./AppHeader";
 import { BottomNav } from "./BottomNav";
 import { DisclaimerGate } from "@/components/app/DisclaimerGate";
+import { EmailVerificationBanner } from "@/components/app/EmailVerificationBanner";
 import { IdleTimeoutGuard } from "@/components/app/IdleTimeoutGuard";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
@@ -75,6 +76,7 @@ export function AppLayout() {
       )}
 
       <div className={cn("flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-hidden bg-background")}>
+        <EmailVerificationBanner />
         <AppHeader onOpenMenu={() => setMenuOpen(true)} />
         <main
           id="app-scroll-container"
