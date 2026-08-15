@@ -3,8 +3,22 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // True only if the caller's OWN profile doc has 'admin' in its roles
+    // list. `roles` is never client-writable (see the `allow update` rule
+    // below), so this can't be self-granted — it's only ever set by a human
+    // editing Firestore directly in the console. get() results are cached
+    // for the duration of a single request, so this costs one extra read
+    // per request, not one per document even when used inside a `list`
+    // query over many profiles (see functions/api/admin-users.ts).
+    function isAdmin() {
+      return request.auth != null &&
+        'admin' in get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.roles;
+    }
+
     match /profiles/{uid} {
-      allow read: if request.auth != null && request.auth.uid == uid;
+      // Admins can additionally read every OTHER profile too, for the admin
+      // user-overview page — everything else about a profile stays owner-only.
+      allow read: if request.auth != null && (request.auth.uid == uid || isAdmin());
 
       // Subscription/billing state (subscriptionStatus, stripeCustomerId,
       // certificatePaymentStatus, etc.) intentionally does NOT live here —

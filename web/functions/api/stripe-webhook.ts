@@ -106,11 +106,38 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       }
     }
 
+    if (event.type === "invoice.upcoming") {
+      // Fired when Stripe's own "upcoming renewal" customer email goes out
+      // (Settings > Customer emails in the Stripe Dashboard) — this app
+      // doesn't compose or send that email itself, just records that it
+      // fired so the admin user list can show a "reminder sent" date.
+      // Subscription metadata (including firebase_uid) is snapshotted onto
+      // the invoice's parent.subscription_details at finalization, so no
+      // extra API call is needed to resolve which user this is for.
+      const invoice = event.data.object as Stripe.Invoice;
+      const uid = invoice.parent?.subscription_details?.metadata?.firebase_uid;
+      console.log(
+        `[stripe-webhook] invoice.upcoming — invoice ${invoice.id ?? "(preview)"}, customer=${invoice.customer ?? "(missing)"}, firebase_uid=${uid ?? "(missing)"}`,
+      );
+
+      if (uid) {
+        await putSubscriptionRecord(env.SUBSCRIPTIONS, uid, {
+          renewalReminderSentAt: new Date().toISOString(),
+        });
+        console.log(`[stripe-webhook] KV write complete for uid=${uid} (renewalReminderSentAt set)`);
+      } else {
+        console.error(
+          `[stripe-webhook] skipped KV write for invoice.upcoming — no subscription metadata.firebase_uid on invoice ${invoice.id ?? "(preview)"}.`,
+        );
+      }
+    }
+
     if (
       event.type !== "customer.subscription.created" &&
       event.type !== "customer.subscription.updated" &&
       event.type !== "customer.subscription.deleted" &&
-      event.type !== "checkout.session.completed"
+      event.type !== "checkout.session.completed" &&
+      event.type !== "invoice.upcoming"
     ) {
       console.log(`[stripe-webhook] event type ${event.type} received but not handled — ignoring`);
     }

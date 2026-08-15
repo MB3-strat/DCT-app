@@ -41,6 +41,12 @@ export interface SubscriptionRecord {
   certificatePaymentStatus?: string;
   certificatePaidAt?: string;
   stripeCertificateSessionId?: string;
+  // Set from the invoice.upcoming webhook event, which Stripe fires when its
+  // own "upcoming renewal" customer email goes out (enabled in the Stripe
+  // Dashboard under Settings > Customer emails). This only records that
+  // Stripe's reminder fired — the app doesn't compose or send anything
+  // itself for this.
+  renewalReminderSentAt?: string;
 }
 
 export async function getSubscriptionRecord(kv: KVNamespace, uid: string): Promise<SubscriptionRecord> {
