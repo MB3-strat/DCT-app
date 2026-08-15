@@ -82,10 +82,22 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           });
           console.log(`[stripe-webhook] KV write complete for uid=${uid} (certificatePaymentStatus=paid)`);
         } else {
-          await putSubscriptionRecord(env.SUBSCRIPTIONS, uid, {
-            stripeCustomerId: String(session.customer),
-          });
-          console.log(`[stripe-webhook] KV write complete for uid=${uid} (stripeCustomerId only — subscription events will fill in status)`);
+          // Deliberately NOT writing here for a subscription checkout. Stripe
+          // sends checkout.session.completed and customer.subscription.created
+          // back-to-back for a new subscription, often close enough together
+          // that they can be processed concurrently. Both handlers do a KV
+          // read-modify-write (getSubscriptionRecord then putSubscriptionRecord)
+          // against the *same* record — if this one's read happened before the
+          // other handler's write landed, this write would clobber the
+          // subscriptionStatus the other handler just set, silently reverting
+          // an active subscription back to looking unpaid. customer.subscription
+          // events already carry the customer ID, so there's nothing this
+          // branch needs to contribute for subscriptions — only skip it here
+          // rather than trying to make two racing writers cooperate.
+          console.log(
+            `[stripe-webhook] checkout_kind=${checkoutKind ?? "subscription"} — skipping KV write here; ` +
+              "customer.subscription.created/updated owns subscription state and will write stripeCustomerId + subscriptionStatus together.",
+          );
         }
       } else {
         console.error(
