@@ -29,6 +29,14 @@ export default function Billing() {
       toast.success("Payment received — confirming your subscription...");
       confirmSubscriptionAfterCheckout();
     }
+    if (params.get("checkout") === "already-active") {
+      // Server-side found you already have an active subscription via
+      // Stripe directly (not our own KV, which can lag) and skipped
+      // creating a duplicate. Kick the poll anyway in case our own status
+      // read just hasn't caught up yet.
+      toast.message("You're already subscribed — refreshing your status...");
+      confirmSubscriptionAfterCheckout();
+    }
     if (params.has("checkout")) {
       window.history.replaceState(null, "", window.location.pathname);
     }

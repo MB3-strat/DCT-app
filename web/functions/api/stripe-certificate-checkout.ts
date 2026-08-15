@@ -50,6 +50,22 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const stripe = getStripe(env);
     const customerId = await getOrCreateStripeCustomer(stripe, env.SUBSCRIPTIONS, user.uid, user.email);
 
+    // Authoritative anti-duplicate check, asked directly of Stripe rather
+    // than relying only on the KV check above. Our own KV is eventually
+    // consistent — right after a real successful payment, the webhook may
+    // have already written certificatePaymentStatus, but a read here could
+    // still see a stale pre-write value for up to ~60s. Since this is a
+    // one-time payment (no subscription object to check), look at this
+    // customer's past Checkout Sessions directly instead — Stripe's own
+    // data has no such lag.
+    const existingSessions = await stripe.checkout.sessions.list({ customer: customerId, limit: 20 });
+    const alreadyPaid = existingSessions.data.some(
+      (s) => s.payment_status === "paid" && s.metadata?.checkout_kind === "certificate",
+    );
+    if (alreadyPaid) {
+      return Response.json({ url: `${getAppUrl(env, request)}/app/feedback-cpd?certificate=paid` });
+    }
+
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       customer: customerId,

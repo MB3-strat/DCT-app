@@ -104,6 +104,14 @@ export default function FeedbackCpd() {
     if (params.get("certificate") === "cancelled") {
       toast.message("Certificate payment was cancelled.");
     }
+    if (params.get("certificate") === "paid") {
+      // Server-side found this was already paid via Stripe directly (not
+      // our own KV, which can lag) and skipped creating a duplicate charge.
+      // Kick the poll anyway in case our own status read just hasn't caught
+      // up yet.
+      toast.message("Certificate already paid — refreshing your status...");
+      confirmCertificateAfterCheckout();
+    }
     if (params.has("certificate")) {
       window.history.replaceState(null, "", window.location.pathname);
     }

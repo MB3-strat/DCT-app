@@ -16,6 +16,26 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const stripe = getStripe(env);
     const customerId = await getOrCreateStripeCustomer(stripe, env.SUBSCRIPTIONS, user.uid, user.email);
 
+    // Authoritative anti-duplicate check, asked directly of Stripe rather
+    // than our own Cloudflare KV record. KV is eventually consistent — right
+    // after a real successful checkout, our webhook may have already
+    // written subscriptionStatus, but a read here could still see a stale
+    // pre-write value for up to ~60s. If this checked *our* KV instead, a
+    // user re-clicking "Subscribe" during exactly that window could create
+    // a genuine second paid subscription. Stripe's own subscriptions list
+    // has no such lag, so check there instead.
+    const existingSubscriptions = await stripe.subscriptions.list({
+      customer: customerId,
+      status: "all",
+      limit: 10,
+    });
+    const alreadySubscribed = existingSubscriptions.data.some(
+      (sub) => sub.status === "active" || sub.status === "trialing",
+    );
+    if (alreadySubscribed) {
+      return Response.json({ url: `${getAppUrl(env, request)}/app/billing?checkout=already-active` });
+    }
+
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
