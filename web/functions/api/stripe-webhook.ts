@@ -1,13 +1,21 @@
 import Stripe from "stripe";
 import { getStripe, putSubscriptionRecord, type Env } from "./_shared/stripe.js";
 
+// TEMPORARY diagnostic logging while chasing why subscription/certificate
+// state isn't updating after checkout. Every console.log/error here shows
+// up live in `wrangler pages deployment tail --project-name dct-app` —
+// remove this once the webhook is confirmed working end-to-end.
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
+  console.log("[stripe-webhook] request received");
+
   if (!env.STRIPE_WEBHOOK_SECRET) {
+    console.error("[stripe-webhook] STRIPE_WEBHOOK_SECRET is not set in this environment");
     return Response.json({ error: "STRIPE_WEBHOOK_SECRET is required" }, { status: 503 });
   }
 
   const signature = request.headers.get("stripe-signature");
   if (!signature) {
+    console.error("[stripe-webhook] missing stripe-signature header");
     return Response.json({ error: "Missing Stripe signature" }, { status: 400 });
   }
 
@@ -24,6 +32,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       Stripe.createSubtleCryptoProvider(),
     );
 
+    console.log(`[stripe-webhook] signature verified — event ${event.id} (${event.type}), livemode=${event.livemode}`);
+
     if (
       event.type === "customer.subscription.created" ||
       event.type === "customer.subscription.updated" ||
@@ -31,6 +41,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     ) {
       const subscription = event.data.object as Stripe.Subscription & { current_period_end?: number };
       const uid = subscription.metadata.firebase_uid;
+      console.log(
+        `[stripe-webhook] ${event.type} — subscription ${subscription.id}, status=${subscription.status}, firebase_uid=${uid ?? "(missing)"}`,
+      );
 
       if (uid) {
         await putSubscriptionRecord(env.SUBSCRIPTIONS, uid, {
@@ -41,6 +54,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
             ? new Date(subscription.current_period_end * 1000).toISOString()
             : undefined,
         });
+        console.log(`[stripe-webhook] KV write complete for uid=${uid} (subscriptionStatus=${subscription.status})`);
+      } else {
+        console.error(
+          `[stripe-webhook] skipped KV write — no metadata.firebase_uid on subscription ${subscription.id}. ` +
+            "This subscription wasn't created through our checkout flow (or metadata wasn't copied onto it), so nothing to update.",
+        );
       }
     }
 
@@ -48,6 +67,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const session = event.data.object as Stripe.Checkout.Session;
       const uid = session.metadata?.firebase_uid;
       const checkoutKind = session.metadata?.checkout_kind;
+      console.log(
+        `[stripe-webhook] checkout.session.completed — session ${session.id}, firebase_uid=${uid ?? "(missing)"}, ` +
+          `checkout_kind=${checkoutKind ?? "(missing)"}, payment_status=${session.payment_status}, customer=${session.customer ?? "(missing)"}`,
+      );
 
       if (uid && session.customer) {
         if (checkoutKind === "certificate" && session.payment_status === "paid") {
@@ -57,16 +80,32 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
             certificatePaymentStatus: "paid",
             certificatePaidAt: new Date().toISOString(),
           });
+          console.log(`[stripe-webhook] KV write complete for uid=${uid} (certificatePaymentStatus=paid)`);
         } else {
           await putSubscriptionRecord(env.SUBSCRIPTIONS, uid, {
             stripeCustomerId: String(session.customer),
           });
+          console.log(`[stripe-webhook] KV write complete for uid=${uid} (stripeCustomerId only — subscription events will fill in status)`);
         }
+      } else {
+        console.error(
+          `[stripe-webhook] skipped KV write — uid=${uid ?? "(missing)"}, customer=${session.customer ?? "(missing)"}. Both are required.`,
+        );
       }
+    }
+
+    if (
+      event.type !== "customer.subscription.created" &&
+      event.type !== "customer.subscription.updated" &&
+      event.type !== "customer.subscription.deleted" &&
+      event.type !== "checkout.session.completed"
+    ) {
+      console.log(`[stripe-webhook] event type ${event.type} received but not handled — ignoring`);
     }
 
     return Response.json({ received: true });
   } catch (error) {
+    console.error("[stripe-webhook] failed:", error instanceof Error ? `${error.name}: ${error.message}` : error);
     return Response.json(
       { error: error instanceof Error ? error.message : "Webhook failed" },
       { status: 400 },
