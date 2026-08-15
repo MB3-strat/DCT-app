@@ -6,8 +6,14 @@ import { useAuth } from "@/context/AuthContext";
 import { PRODUCT } from "@/data/meta";
 import { toast } from "sonner";
 
-const POLL_INTERVAL_MS = 1500;
-const MAX_POLL_ATTEMPTS = 6;
+const POLL_INTERVAL_MS = 2000;
+// Cloudflare KV is eventually consistent — a write from the webhook can take
+// up to roughly a minute to become visible to a read landing on a different
+// edge location, even though the write itself completed immediately. 30
+// attempts at 2s covers that with room to spare (a 9s window measurably
+// wasn't enough in production testing — it kept giving up before the write
+// had propagated, even though the webhook had already succeeded).
+const MAX_POLL_ATTEMPTS = 30;
 
 export default function Billing() {
   const { user, getIdToken, refreshUser, logout } = useAuth();
@@ -16,11 +22,12 @@ export default function Billing() {
   // Firebase Auth persists the sign-in across the redirect to Stripe and
   // back, so a user who just registered/logged in and completed checkout
   // lands here already authenticated — no second login required. What can
-  // lag is *subscription* status: Stripe's checkout.session.completed event
-  // and the customer.subscription.created event that actually flips
-  // subscriptionStatus to "active" can arrive a beat apart, so the page can
-  // briefly show a stale "none" status. Poll a few times instead of making
-  // the user click "Refresh" themselves.
+  // lag is *subscription* status: the webhook writes subscriptionStatus to
+  // Cloudflare KV as soon as Stripe's customer.subscription.created event
+  // arrives, but KV is eventually consistent — that write can take up to
+  // roughly a minute to become visible to a read from this page, even
+  // though the write itself already succeeded. Poll for a while instead of
+  // making the user click "Refresh" themselves.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("checkout") === "cancelled") {
@@ -103,7 +110,10 @@ export default function Billing() {
       {confirming && (
         <div className="mb-6 flex items-start gap-2.5 rounded-lg border border-brand-green/40 bg-brand-green/10 px-4 py-3 text-brand-green">
           <Loader2 className="mt-0.5 h-5 w-5 flex-shrink-0 animate-spin" />
-          <p className="text-sm">Confirming your subscription with Stripe — this usually takes a couple of seconds.</p>
+          <p className="text-sm">
+            Confirming your subscription with Stripe — this is usually quick, but can occasionally take up to a
+            minute. No need to refresh; this will update on its own.
+          </p>
         </div>
       )}
 

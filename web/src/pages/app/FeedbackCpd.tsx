@@ -15,8 +15,12 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 const STORAGE_KEY = "feedback-cpd";
-const POLL_INTERVAL_MS = 1500;
-const MAX_POLL_ATTEMPTS = 6;
+const POLL_INTERVAL_MS = 2000;
+// Cloudflare KV is eventually consistent — a write from the webhook can take
+// up to roughly a minute to become visible to a read landing on a different
+// edge location, even though the write itself completed immediately. 30
+// attempts at 2s covers that with room to spare.
+const MAX_POLL_ATTEMPTS = 30;
 
 const USEFULNESS = ["Extremely useful", "Very useful", "Useful", "Somewhat useful", "Not useful"];
 const SECTIONS = [
@@ -112,9 +116,13 @@ export default function FeedbackCpd() {
   // This is a one-time payment (mode: "payment"), not a subscription — if the
   // webhook lags and the user impatiently clicks "Pay €5" again before
   // certificatePurchased flips to true, that creates a *second real Stripe
-  // charge*, not just a stale UI state. Poll a few times after the redirect
+  // charge*, not just a stale UI state. Poll for a while after the redirect
   // and keep the checkout button disabled the whole time it could still be
-  // in flight (see the `confirming ||` guard below).
+  // in flight (see the `confirming ||` guard below). The KV write itself
+  // happens immediately in the webhook, but Cloudflare KV is eventually
+  // consistent — a read from this page can take up to roughly a minute to
+  // see it, so the poll window needs to comfortably outlast that rather
+  // than giving up after a few seconds.
   useEffect(() => {
     if (!confirming) return;
     if (certificatePaid) {
@@ -420,8 +428,8 @@ export default function FeedbackCpd() {
               <div className="mt-3 flex items-start gap-2 rounded-lg border border-brand-green/40 bg-brand-green/10 px-3 py-2 text-brand-green">
                 <Loader2 className="mt-0.5 h-4 w-4 flex-shrink-0 animate-spin" />
                 <p className="text-xs">
-                  Confirming your payment with Stripe — this usually takes a couple of seconds. The button stays
-                  disabled until this finishes, so you won't be charged twice.
+                  Confirming your payment with Stripe — this is usually quick, but can occasionally take up to a
+                  minute. The button stays disabled until this finishes, so you won't be charged twice.
                 </p>
               </div>
             )}
