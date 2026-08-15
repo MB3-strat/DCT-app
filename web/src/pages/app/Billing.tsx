@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { ArrowLeft, CreditCard, Check, ExternalLink, Loader2, ShieldAlert, XCircle, LogOut } from "lucide-react";
 import { Link } from "react-router-dom";
 import { PageContainer, PageHeading } from "@/components/app/PageContainer";
@@ -6,18 +6,9 @@ import { useAuth } from "@/context/AuthContext";
 import { PRODUCT } from "@/data/meta";
 import { toast } from "sonner";
 
-const POLL_INTERVAL_MS = 2000;
-// Cloudflare KV is eventually consistent — a write from the webhook can take
-// up to roughly a minute to become visible to a read landing on a different
-// edge location, even though the write itself completed immediately. 30
-// attempts at 2s covers that with room to spare (a 9s window measurably
-// wasn't enough in production testing — it kept giving up before the write
-// had propagated, even though the webhook had already succeeded).
-const MAX_POLL_ATTEMPTS = 30;
-
 export default function Billing() {
-  const { user, getIdToken, refreshUser, logout } = useAuth();
-  const [confirming, setConfirming] = useState(false);
+  const { user, getIdToken, refreshUser, logout, confirmingSubscription, confirmSubscriptionAfterCheckout } =
+    useAuth();
 
   // Firebase Auth persists the sign-in across the redirect to Stripe and
   // back, so a user who just registered/logged in and completed checkout
@@ -25,9 +16,10 @@ export default function Billing() {
   // lag is *subscription* status: the webhook writes subscriptionStatus to
   // Cloudflare KV as soon as Stripe's customer.subscription.created event
   // arrives, but KV is eventually consistent — that write can take up to
-  // roughly a minute to become visible to a read from this page, even
-  // though the write itself already succeeded. Poll for a while instead of
-  // making the user click "Refresh" themselves.
+  // roughly a minute to become visible to a read from this page. The actual
+  // polling (and the "confirming" flag) lives in AuthContext, not here, so
+  // it keeps running and keeps the buy button disabled even if the user
+  // navigates away and back before it resolves.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("checkout") === "cancelled") {
@@ -35,7 +27,7 @@ export default function Billing() {
     }
     if (params.get("checkout") === "success") {
       toast.success("Payment received — confirming your subscription...");
-      setConfirming(true);
+      confirmSubscriptionAfterCheckout();
     }
     if (params.has("checkout")) {
       window.history.replaceState(null, "", window.location.pathname);
@@ -43,37 +35,6 @@ export default function Billing() {
     // Runs once on mount to handle the Stripe redirect query param.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    if (!confirming) return;
-    if (user && (user.subscription === "active" || user.subscription === "trialing")) {
-      setConfirming(false);
-      toast.success("You're subscribed — welcome in.");
-      return;
-    }
-
-    let cancelled = false;
-    let attempts = 0;
-    let timeoutId: number;
-
-    const poll = async () => {
-      attempts += 1;
-      await refreshUser();
-      if (cancelled) return;
-      if (attempts >= MAX_POLL_ATTEMPTS) {
-        setConfirming(false);
-        return;
-      }
-      timeoutId = window.setTimeout(poll, POLL_INTERVAL_MS);
-    };
-
-    timeoutId = window.setTimeout(poll, POLL_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timeoutId);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [confirming, user?.subscription]);
 
   if (!user) return null;
   const hasStripeCustomer = Boolean(user.stripeCustomerId);
@@ -107,7 +68,7 @@ export default function Billing() {
       </Link>
       <PageHeading kicker="Subscription" title="Billing" description="Manage your annual subscription through Stripe." />
 
-      {confirming && (
+      {confirmingSubscription && (
         <div className="mb-6 flex items-start gap-2.5 rounded-lg border border-brand-green/40 bg-brand-green/10 px-4 py-3 text-brand-green">
           <Loader2 className="mt-0.5 h-5 w-5 flex-shrink-0 animate-spin" />
           <p className="text-sm">
@@ -148,10 +109,15 @@ export default function Billing() {
           <div className="mt-6 flex flex-wrap gap-3">
             <button
               onClick={() => openStripe(hasPaidSubscription && hasStripeCustomer ? "/api/stripe-portal" : "/api/stripe-checkout")}
-              className="inline-flex items-center gap-2 rounded-full bg-brand-green px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-green-mid"
+              disabled={confirmingSubscription && !hasPaidSubscription}
+              className="inline-flex items-center gap-2 rounded-full bg-brand-green px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-green-mid disabled:cursor-not-allowed disabled:opacity-50"
             >
               <ExternalLink className="h-4 w-4" />
-              {hasPaidSubscription && hasStripeCustomer ? "Open billing portal" : `Subscribe — ${PRODUCT.priceLabel}`}
+              {hasPaidSubscription && hasStripeCustomer
+                ? "Open billing portal"
+                : confirmingSubscription
+                  ? "Confirming..."
+                  : `Subscribe — ${PRODUCT.priceLabel}`}
             </button>
             {hasStripeCustomer && (
               <button

@@ -27,6 +27,7 @@ import {
   serverTimestamp,
   type Unsubscribe,
 } from "firebase/firestore";
+import { toast } from "sonner";
 import { auth, db, getRedirectUrl } from "@/lib/firebase";
 
 /**
@@ -60,6 +61,11 @@ interface AuthValue {
   isAuthed: boolean;
   isSubscribed: boolean;
   isAdmin: boolean;
+  // Whether a post-checkout confirmation poll is currently running — lives
+  // here (not on the Billing/FeedbackCpd pages) specifically so it survives
+  // navigation. See confirmSubscriptionAfterCheckout for why that matters.
+  confirmingSubscription: boolean;
+  confirmingCertificate: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<string>;
   sendMagicLink: (email: string) => Promise<void>;
@@ -67,6 +73,19 @@ interface AuthValue {
   refreshUser: () => Promise<void>;
   updateUser: (patch: Partial<User>) => void;
   getIdToken: () => Promise<string | null>;
+  // Call after a Stripe Checkout redirect lands with ?checkout=success /
+  // ?certificate=success. Starts a background poll (living here in
+  // AuthProvider, which wraps the whole app and never unmounts) that keeps
+  // re-checking subscription/certificate status until it resolves or times
+  // out — up to ~60s, since Cloudflare KV is eventually consistent and the
+  // webhook's write can take a while to become visible to a read. Because
+  // this lives above the router, the "buy" buttons on Billing/FeedbackCpd
+  // stay correctly disabled even if the user navigates away and back (or
+  // uses browser back/forward) mid-confirmation — clicking "Subscribe" or
+  // "Pay €5" again while a real payment is still confirming would create a
+  // genuine second charge, not just a UI glitch.
+  confirmSubscriptionAfterCheckout: () => void;
+  confirmCertificateAfterCheckout: () => void;
 }
 
 const AuthContext = createContext<AuthValue | null>(null);
@@ -118,13 +137,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const loadUser = useCallback(async (fbUser: FirebaseUser | null) => {
+  const loadUser = useCallback(async (fbUser: FirebaseUser | null): Promise<User | null> => {
     setFirebaseUser(fbUser);
 
     if (!fbUser || !db) {
       setUser(null);
       setLoading(false);
-      return;
+      return null;
     }
 
     const profileRef = doc(db, "profiles", fbUser.uid);
@@ -156,7 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ]),
     );
 
-    setUser({
+    const nextUser: User = {
       id: fbUser.uid,
       name: profile.fullName || fbUser.displayName || email.split("@")[0] || "",
       email,
@@ -167,7 +186,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       stripeCustomerId: subInfo.stripeCustomerId,
       certificatePurchased: subInfo.certificatePurchased,
       certificatePaidAt: subInfo.certificatePaidAt,
-    });
+    };
+    setUser(nextUser);
     setLoading(false);
 
     // Claim this tab as the active session (direct client write — this is
@@ -177,6 +197,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       { activeSessionId: getClientSessionId(), activeSessionAt: serverTimestamp() },
       { merge: true },
     ).catch(() => {});
+
+    return nextUser;
   }, []);
 
   useEffect(() => {
@@ -287,6 +309,59 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // this in a useEffect array would otherwise re-run on every render.
   const refreshUser = useCallback(() => loadUser(firebaseUser), [loadUser, firebaseUser]);
 
+  // See the AuthValue interface for why this lives here rather than on the
+  // Billing/FeedbackCpd pages: it needs to survive navigation.
+  const [confirmingKind, setConfirmingKind] = useState<"subscription" | "certificate" | null>(null);
+  const CONFIRM_POLL_INTERVAL_MS = 2000;
+  // Cloudflare KV is eventually consistent — a write from the webhook can
+  // take up to roughly a minute to become visible to a read from here, even
+  // though the write itself already completed. 30 attempts at 2s covers
+  // that with room to spare.
+  const CONFIRM_MAX_ATTEMPTS = 30;
+
+  const confirmSubscriptionAfterCheckout = useCallback(() => setConfirmingKind("subscription"), []);
+  const confirmCertificateAfterCheckout = useCallback(() => setConfirmingKind("certificate"), []);
+
+  useEffect(() => {
+    if (!confirmingKind) return;
+
+    const isConfirmed = (candidate: User | null) => {
+      if (!candidate) return false;
+      return confirmingKind === "subscription"
+        ? candidate.subscription === "active" || candidate.subscription === "trialing"
+        : candidate.certificatePurchased;
+    };
+
+    const successMessage =
+      confirmingKind === "subscription" ? "You're subscribed — welcome in." : "Certificate unlocked — you can download it now.";
+
+    let cancelled = false;
+    let attempts = 0;
+    let timeoutId: number;
+
+    const poll = async () => {
+      attempts += 1;
+      const next = await loadUser(firebaseUser);
+      if (cancelled) return;
+      if (isConfirmed(next)) {
+        setConfirmingKind(null);
+        toast.success(successMessage);
+        return;
+      }
+      if (attempts >= CONFIRM_MAX_ATTEMPTS) {
+        setConfirmingKind(null);
+        return;
+      }
+      timeoutId = window.setTimeout(poll, CONFIRM_POLL_INTERVAL_MS);
+    };
+
+    timeoutId = window.setTimeout(poll, CONFIRM_POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [confirmingKind, firebaseUser, loadUser]);
+
   const value = useMemo<AuthValue>(
     () => ({
       user,
@@ -295,6 +370,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthed: !!user,
       isSubscribed: !!user && (user.subscription === "active" || user.subscription === "trialing"),
       isAdmin: !!user && user.roles.includes("admin"),
+      confirmingSubscription: confirmingKind === "subscription",
+      confirmingCertificate: confirmingKind === "certificate",
       login,
       register,
       sendMagicLink,
@@ -302,8 +379,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refreshUser,
       updateUser,
       getIdToken,
+      confirmSubscriptionAfterCheckout,
+      confirmCertificateAfterCheckout,
     }),
-    [user, firebaseUser, loading, login, register, sendMagicLink, logout, refreshUser, updateUser, getIdToken],
+    [
+      user,
+      firebaseUser,
+      loading,
+      confirmingKind,
+      login,
+      register,
+      sendMagicLink,
+      logout,
+      refreshUser,
+      updateUser,
+      getIdToken,
+      confirmSubscriptionAfterCheckout,
+      confirmCertificateAfterCheckout,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
