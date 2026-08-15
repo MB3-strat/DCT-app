@@ -9,9 +9,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 //      for two hours and comes back, they should be logged out immediately
 //      on load, not get a fresh hour just because the timer restarted.
 const ACTIVITY_KEY = "dct:last-activity";
-// TEMPORARY for testing — revert to 60 * 60 * 1000 / 60 * 1000 before shipping.
-const IDLE_LIMIT_MS = 20 * 1000; // 20 seconds
-const WARNING_MS = 10 * 1000; // show the "signing you out" countdown for the last 10s
+const IDLE_LIMIT_MS = 60 * 60 * 1000; // 1 hour
+const WARNING_MS = 60 * 1000; // show the "signing you out" countdown for the last 60s
 const CHECK_INTERVAL_MS = 1000;
 const ACTIVITY_WRITE_THROTTLE_MS = 5000; // don't hit localStorage on every mousemove
 
