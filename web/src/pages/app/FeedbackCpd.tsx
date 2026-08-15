@@ -143,6 +143,20 @@ export default function FeedbackCpd() {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
+  // Default "Full name for certificate" to the user's current profile name
+  // (Account page fullName, falling back to their Auth display name) rather
+  // than leaving it blank. Only fills it in while it's still empty, so this
+  // never overwrites a value someone already typed or previously saved to
+  // this form.
+  useEffect(() => {
+    if (user?.name && !form.fullName) {
+      update("fullName", user.name);
+    }
+    // Only re-run when the profile name itself changes — not on every
+    // form.fullName edit, or this would fight the user while they type.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.name]);
+
   function toggleList(key: "sections" | "confirmations", value: string) {
     setForm((prev) => {
       const current = prev[key];
