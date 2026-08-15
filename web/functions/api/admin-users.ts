@@ -1,6 +1,7 @@
 import { getBearerToken, verifyIdToken } from "./_shared/firebase.js";
 import { getDoc, listDocs } from "./_shared/firestore.js";
 import { type Env, type SubscriptionRecord } from "./_shared/stripe.js";
+import MODULES from "../../src/data/modules.json";
 
 export interface AdminUserRow {
   uid: string;
@@ -12,10 +13,12 @@ export interface AdminUserRow {
   cpdPurchased: boolean;
   cpdPurchasedAt?: string;
   renewalReminderSentAt?: string;
+  modulesCompleted: number;
 }
 
 export interface AdminUsersResponse {
   users: AdminUserRow[];
+  totalModules: number;
   totals: {
     totalUsers: number;
     activeSubscriptions: number;
@@ -23,6 +26,21 @@ export interface AdminUsersResponse {
     cpdPurchased: number;
     reminderSent: number;
   };
+}
+
+// Same filter stripe-certificate-checkout.ts uses to decide CPD eligibility
+// — the `progress` subcollection holds both module and toolkit read state,
+// so this narrows to modules that are actually marked read.
+async function getModulesCompletedCount(projectId: string, idToken: string, uid: string): Promise<number> {
+  try {
+    const progressDocs = await listDocs(projectId, idToken, `profiles/${uid}/progress`);
+    return progressDocs.filter((d) => d.kind === "module" && d.read === true).length;
+  } catch {
+    // A user who's never opened a module has no progress subcollection at
+    // all yet — treat that (or any other read hiccup for one user) as zero
+    // rather than failing the whole admin page over it.
+    return 0;
+  }
 }
 
 // Cloudflare KV has no query/join capability, so this walks every key in the
@@ -77,6 +95,19 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       getAllSubscriptionRecords(env.SUBSCRIPTIONS),
     ]);
 
+    // One extra Firestore read per user (their own progress subcollection).
+    // Fine at this app's scale, run in parallel; would need a different
+    // approach (e.g. mirroring a count onto the profile doc as progress is
+    // saved) if the user base grows large enough for this sweep to get slow.
+    const modulesCompletedByUid = Object.fromEntries(
+      await Promise.all(
+        profiles.map(async (profile) => {
+          const uid = profile.id as string;
+          return [uid, await getModulesCompletedCount(env.FIREBASE_PROJECT_ID, idToken, uid)] as const;
+        }),
+      ),
+    );
+
     const users: AdminUserRow[] = profiles.map((profile) => {
       const uid = profile.id as string;
       const record = subscriptionsByUid[uid] ?? {};
@@ -90,6 +121,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         cpdPurchased: record.certificatePaymentStatus === "paid",
         cpdPurchasedAt: record.certificatePaidAt,
         renewalReminderSentAt: record.renewalReminderSentAt,
+        modulesCompleted: modulesCompletedByUid[uid] ?? 0,
       };
     });
 
@@ -109,7 +141,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       reminderSent: users.filter((u) => u.renewalReminderSentAt).length,
     };
 
-    return Response.json({ users, totals } satisfies AdminUsersResponse);
+    return Response.json({ users, totalModules: MODULES.length, totals } satisfies AdminUsersResponse);
   } catch (error) {
     return Response.json(
       { error: error instanceof Error ? error.message : "Failed to load admin user data" },

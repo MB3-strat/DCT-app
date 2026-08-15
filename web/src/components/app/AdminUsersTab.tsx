@@ -18,10 +18,12 @@ interface AdminUserRow {
   cpdPurchased: boolean;
   cpdPurchasedAt?: string;
   renewalReminderSentAt?: string;
+  modulesCompleted: number;
 }
 
 interface AdminUsersResponse {
   users: AdminUserRow[];
+  totalModules: number;
   totals: {
     totalUsers: number;
     activeSubscriptions: number;
@@ -146,7 +148,7 @@ export function AdminUsersTab() {
 
   if (!data) return null;
 
-  const { totals } = data;
+  const { totals, totalModules } = data;
 
   return (
     <div className="space-y-6">
@@ -224,6 +226,7 @@ export function AdminUsersTab() {
               <th className="px-4 py-3">Role</th>
               <th className="px-4 py-3">Subscription</th>
               <th className="px-4 py-3">Expires</th>
+              <th className="px-4 py-3">Modules completed</th>
               <th className="px-4 py-3">CPD</th>
               <th className="px-4 py-3">CPD generated</th>
               <th className="px-4 py-3">Reminder sent</th>
@@ -258,6 +261,9 @@ export function AdminUsersTab() {
                   </span>
                 </td>
                 <td className="px-4 py-2.5 text-muted-foreground">{formatDate(u.subscriptionExpiresAt)}</td>
+                <td className={cn("px-4 py-2.5", u.modulesCompleted >= totalModules && "font-semibold text-success")}>
+                  {u.modulesCompleted} / {totalModules}
+                </td>
                 <td className="px-4 py-2.5">
                   {u.cpdPurchased ? (
                     <span className="rounded-full bg-success/12 px-2 py-0.5 text-xs font-semibold text-success">Yes</span>
@@ -271,7 +277,7 @@ export function AdminUsersTab() {
             ))}
             {pageRows.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-10 text-center text-muted-foreground">
+                <td colSpan={9} className="px-4 py-10 text-center text-muted-foreground">
                   No users match these filters.
                 </td>
               </tr>
