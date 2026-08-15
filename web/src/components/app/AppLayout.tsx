@@ -4,6 +4,7 @@ import { AppSidebar } from "./AppSidebar";
 import { AppHeader } from "./AppHeader";
 import { BottomNav } from "./BottomNav";
 import { DisclaimerGate } from "@/components/app/DisclaimerGate";
+import { IdleTimeoutGuard } from "@/components/app/IdleTimeoutGuard";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
@@ -44,6 +45,8 @@ export function AppLayout() {
 
   return (
     <div className="fixed inset-0 flex w-full max-w-full overflow-hidden bg-background">
+      <IdleTimeoutGuard />
+
       {/* Desktop sidebar */}
       <aside className="hidden h-full w-64 shrink-0 bg-sidebar md:block">
         <AppSidebar />
