@@ -84,7 +84,28 @@ export default function FeedbackCpd() {
   const [form, setForm] = useState<FeedbackForm>(() => readJSON<FeedbackForm>(STORAGE_KEY, EMPTY_FORM));
   const [certificateBusy, setCertificateBusy] = useState(false);
   const [downloadBusy, setDownloadBusy] = useState(false);
+  const [markingAllRead, setMarkingAllRead] = useState(false);
   const certificatePaid = user?.certificatePurchased ?? false;
+
+  // TEMPORARY testing shortcut — lets a tester skip clicking through every
+  // module individually to reach the feedback form and exercise the CPD
+  // certificate purchase flow. Writes real "read" progress to Firestore via
+  // the same syncReadProgress path a genuine read would use, so the server
+  // side module-completion check in stripe-certificate-checkout.ts sees it
+  // too. Remove this button (and markingAllRead) once you're done testing —
+  // it lets anyone skip the reading requirement, which is fine for testing
+  // but not something real users should have access to.
+  async function markAllModulesReadForTesting() {
+    setMarkingAllRead(true);
+    try {
+      await syncReadProgress(MODULES.map((m) => m.id));
+      toast.success("All modules marked as read (testing only).");
+    } catch {
+      toast.error("Couldn't mark modules as read. Check your connection and try again.");
+    } finally {
+      setMarkingAllRead(false);
+    }
+  }
 
   useEffect(() => writeJSON(STORAGE_KEY, form), [form]);
 
@@ -255,6 +276,22 @@ export default function FeedbackCpd() {
             <div className="h-2 overflow-hidden rounded-full bg-muted">
               <div className="h-full bg-brand-green" style={{ width: `${Math.round((readModuleIds.size / MODULES.length) * 100)}%` }} />
             </div>
+          </div>
+
+          <div className="mx-auto mt-6 max-w-sm rounded-xl border border-dashed border-brand-gold/50 bg-brand-gold/10 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-brand-gold-ink">Testing only</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Skip clicking through every module to test the feedback form and CPD certificate purchase flow.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={markAllModulesReadForTesting}
+              disabled={markingAllRead}
+              className="mt-3 w-full"
+            >
+              {markingAllRead ? "Marking all as read..." : "Mark all modules as read"}
+            </Button>
           </div>
         </div>
       </PageContainer>
