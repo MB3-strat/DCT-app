@@ -6,7 +6,7 @@ import {
   Wrench, LogOut, ShieldCheck, FileText, BookOpen, Trash2,
 } from "lucide-react";
 import { collection, getDocs, doc, deleteDoc, writeBatch, query, where } from "firebase/firestore";
-import { deleteUser } from "firebase/auth";
+import { deleteUser, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
 import { PageContainer, PageHeading } from "@/components/app/PageContainer";
 import { useAuth } from "@/context/AuthContext";
 import { db } from "@/lib/firebase";
@@ -27,13 +27,49 @@ export default function Account() {
     none: "No subscription",
   };
 
+  // Firebase requires a "recent" sign-in (a short window, unrelated to how
+  // long the app session has been open) before it will allow a
+  // security-sensitive action like deleteUser(). Someone who's been working
+  // in the app for a while before deleting their account — e.g. completing
+  // CPD feedback first — routinely signs in "too long ago" for Firebase's
+  // liking, and would previously hit auth/requires-recent-login only *after*
+  // Firestore/KV data had already been wiped, leaving an orphaned Auth
+  // account with no data behind. Check freshness up front and reauthenticate
+  // before touching anything, so deletion either fully succeeds or doesn't
+  // start.
+  async function ensureRecentLogin() {
+    if (!firebaseUser) return;
+
+    const lastSignInMs = firebaseUser.metadata.lastSignInTime
+      ? new Date(firebaseUser.metadata.lastSignInTime).getTime()
+      : 0;
+    const isStale = Date.now() - lastSignInMs > 5 * 60 * 1000;
+    if (!isStale) return;
+
+    const password = window.prompt(
+      "For security, please re-enter your password to confirm account deletion:",
+    );
+    if (!password) {
+      throw new Error("Account deletion cancelled — password confirmation is required.");
+    }
+
+    try {
+      const credential = EmailAuthProvider.credential(firebaseUser.email ?? "", password);
+      await reauthenticateWithCredential(firebaseUser, credential);
+    } catch (error) {
+      throw new Error(
+        friendlyAuthError(error, "That password wasn't right. Please try deleting your account again."),
+      );
+    }
+  }
+
   // Full account deletion (GDPR/UK GDPR right to erasure) — not just an app
-  // data reset. Order matters: everything that needs the current sign-in
-  // session runs first; deleteUser() runs last since it invalidates that
+  // data reset. Order matters: reauthentication (if needed) happens first,
+  // before any data is touched; everything that needs the current sign-in
+  // session runs next; deleteUser() runs last since it invalidates that
   // session immediately. Every step here is safe to retry (deleting an
-  // already-deleted doc/KV key is a no-op), so if this fails partway —
-  // most commonly Firebase requiring a recent login for account deletion —
-  // the user can sign in again and immediately retry without side effects.
+  // already-deleted doc/KV key is a no-op), so if this still fails partway
+  // for some other reason, the user can retry without side effects.
   async function deleteAccount() {
     if (!user || !firebaseUser || !db) {
       toast.error("Please sign in again before deleting your account.");
@@ -50,6 +86,8 @@ export default function Account() {
 
     setDeleting(true);
     try {
+      await ensureRecentLogin();
+
       const idToken = await getIdToken();
       if (!idToken) throw new Error("Please sign in again before deleting your account.");
 
