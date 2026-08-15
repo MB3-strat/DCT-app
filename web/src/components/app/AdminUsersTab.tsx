@@ -221,6 +221,7 @@ export function AdminUsersTab() {
             <tr>
               <th className="px-4 py-3">Name</th>
               <th className="px-4 py-3">Email</th>
+              <th className="px-4 py-3">Role</th>
               <th className="px-4 py-3">Subscription</th>
               <th className="px-4 py-3">Expires</th>
               <th className="px-4 py-3">CPD</th>
@@ -233,6 +234,19 @@ export function AdminUsersTab() {
               <tr key={u.uid} className="border-t border-border hover:bg-muted/30">
                 <td className="px-4 py-2.5 font-medium">{u.name || "—"}</td>
                 <td className="px-4 py-2.5 text-muted-foreground">{u.email}</td>
+                <td className="px-4 py-2.5">
+                  {u.roles.length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {u.roles.map((r) => (
+                        <span key={r} className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                          {r}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </td>
                 <td className="px-4 py-2.5">
                   <span
                     className={cn(
@@ -257,7 +271,7 @@ export function AdminUsersTab() {
             ))}
             {pageRows.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
+                <td colSpan={8} className="px-4 py-10 text-center text-muted-foreground">
                   No users match these filters.
                 </td>
               </tr>
