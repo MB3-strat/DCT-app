@@ -210,7 +210,7 @@ export const EXTERNAL_RESOURCES: ExternalResourceCategory[] = [
       {
         title: "e-Den",
         description: "Royal College of Surgeons dental e-learning resource.",
-        url: "https://www.e-dent.co.uk/",
+        url: "https://portal.e-lfh.org.uk/Catalogue/Index",
       },
     ],
   },
