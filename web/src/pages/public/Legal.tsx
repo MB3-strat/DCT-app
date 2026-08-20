@@ -2,12 +2,10 @@ import { PublicLayout } from "@/components/public/PublicLayout";
 
 const CONTENT: Record<
   string,
-  { title: string; intro: string; sections: { h: string; p: string }[] }
+  { title: string; intro?: string; sections: { h: string; p: string }[] }
 > = {
   terms: {
     title: "Terms of Use",
-    intro:
-      "Placeholder wording — these Terms require drafting and review by qualified counsel before launch.",
     sections: [
       { h: "1. The service", p: "The DCT Survival Kit is a personal educational reference and induction resource for clinicians. It is provided on an annual subscription basis to individual users." },
       { h: "2. Not medical advice", p: "The content is an educational aid. It is not a substitute for senior clinical advice, local trust policies, professional judgment, or emergency escalation procedures. You remain responsible for confirming all doses, thresholds and pathways against local guidance." },
@@ -18,8 +16,7 @@ const CONTENT: Record<
   },
   privacy: {
     title: "Privacy Policy",
-    intro:
-      "Placeholder wording — this Privacy Policy requires drafting and review before launch. The first version is designed to collect as little personal data as possible.",
+    intro: "This app's first version is designed to collect as little personal data as possible.",
     sections: [
       { h: "Data we collect", p: "Account basics (name, email) for authentication. Bookmarks and reading progress are stored only to provide the app experience." },
       { h: "What we do NOT collect", p: "No patient data, no clinical-image uploads, no advertising trackers, no session-recording software, and no marketing pixels." },
@@ -30,7 +27,6 @@ const CONTENT: Record<
   },
   disclaimer: {
     title: "Clinical Disclaimer",
-    intro: "Placeholder wording — final disclaimer language is pending clinical and legal approval.",
     sections: [
       { h: "Educational aid only", p: "This product is a personal educational and revision aid for clinicians rotating through OMFS. It is not an institutionally endorsed clinical safety tool and is not a medical device." },
       { h: "Always escalate", p: "For any patient in front of you, senior clinical advice and local escalation pathways take precedence over anything shown here. If you are worried about a patient, escalate early." },
@@ -46,9 +42,11 @@ export default function Legal({ kind }: { kind: "terms" | "privacy" | "disclaime
     <PublicLayout>
       <div className="mx-auto w-full max-w-3xl px-4 py-16 md:px-6">
         <h1 className="font-serif text-4xl font-semibold">{c.title}</h1>
-        <div className="mt-4 rounded-lg border border-brand-gold/40 bg-brand-gold/10 p-4 text-sm text-brand-gold-ink">
-          {c.intro}
-        </div>
+        {c.intro && (
+          <div className="mt-4 rounded-lg border border-brand-gold/40 bg-brand-gold/10 p-4 text-sm text-brand-gold-ink">
+            {c.intro}
+          </div>
+        )}
         <div className="mt-8 space-y-7">
           {c.sections.map((s) => (
             <section key={s.h}>
