@@ -46,11 +46,6 @@ export default function Disclaimer() {
           anywhere in this app.
         </Block>
       </div>
-
-      <p className="mt-8 rounded-lg border border-brand-gold/40 bg-brand-gold/10 p-4 text-sm text-brand-gold-ink">
-        This wording is a placeholder pending final clinical and legal approval
-        before launch.
-      </p>
     </PageContainer>
   );
 }
