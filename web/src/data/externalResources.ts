@@ -137,7 +137,7 @@ export const EXTERNAL_RESOURCES: ExternalResourceCategory[] = [
       {
         title: "British Society of Oral Medicine (BSOM)",
         description: "Oral medicine and oral mucosal disease resources.",
-        url: "https://www.bsom.org.uk/",
+        url: "https://bisom.org.uk/",
       },
       {
         title: "British Association for the Study of Community Dentistry (BASCD)",
