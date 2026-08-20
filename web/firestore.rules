@@ -1,0 +1,67 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // True only if the caller's OWN profile doc has 'admin' in its roles
+    // list. `roles` is never client-writable (see the `allow update` rule
+    // below), so this can't be self-granted — it's only ever set by a human
+    // editing Firestore directly in the console. get() results are cached
+    // for the duration of a single request, so this costs one extra read
+    // per request, not one per document even when used inside a `list`
+    // query over many profiles (see functions/api/admin-users.ts).
+    function isAdmin() {
+      return request.auth != null &&
+        'admin' in get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.roles;
+    }
+
+    match /profiles/{uid} {
+      // Admins can additionally read every OTHER profile too, for the admin
+      // user-overview page — everything else about a profile stays owner-only.
+      allow read: if request.auth != null && (request.auth.uid == uid || isAdmin());
+
+      // Subscription/billing state (subscriptionStatus, stripeCustomerId,
+      // certificatePaymentStatus, etc.) intentionally does NOT live here —
+      // it lives in Cloudflare KV, owned exclusively by the Stripe webhook.
+      // `roles` (e.g. admin) stays here but is deliberately excluded from
+      // the client-writable field list below; it's only ever set by a
+      // human editing Firestore directly in the console.
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.roles == [];
+
+      allow update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['fullName', 'trustSettings', 'activeSessionId', 'activeSessionAt', 'updatedAt']);
+
+      // Account deletion (GDPR/UK GDPR right to erasure): the owner can
+      // delete their own profile document outright.
+      allow delete: if request.auth != null && request.auth.uid == uid;
+
+      match /bookmarks/{contentId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+
+      match /progress/{contentId} {
+        // Admins can read (not write) any user's progress too, purely to
+        // show a "modules completed" count on the admin user-overview page.
+        allow read: if request.auth != null && (request.auth.uid == uid || isAdmin());
+        allow write: if request.auth != null && request.auth.uid == uid;
+      }
+    }
+
+    match /reportedIssues/{issueId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+
+      // Reports are kept as a safety/audit record even after the
+      // submitter's account is deleted, but the owner can sever the link
+      // back to their identity at deletion time — narrowly scoped to
+      // exactly that one field, set to exactly null, nothing else.
+      allow update: if request.auth != null && request.auth.uid == resource.data.userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['userId'])
+        && request.resource.data.userId == null;
+
+      allow delete: if false;
+    }
+  }
+}

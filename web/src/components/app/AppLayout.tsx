@@ -4,6 +4,8 @@ import { AppSidebar } from "./AppSidebar";
 import { AppHeader } from "./AppHeader";
 import { BottomNav } from "./BottomNav";
 import { DisclaimerGate } from "@/components/app/DisclaimerGate";
+import { EmailVerificationBanner } from "@/components/app/EmailVerificationBanner";
+import { IdleTimeoutGuard } from "@/components/app/IdleTimeoutGuard";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
@@ -44,6 +46,8 @@ export function AppLayout() {
 
   return (
     <div className="fixed inset-0 flex w-full max-w-full overflow-hidden bg-background">
+      <IdleTimeoutGuard />
+
       {/* Desktop sidebar */}
       <aside className="hidden h-full w-64 shrink-0 bg-sidebar md:block">
         <AppSidebar />
@@ -72,8 +76,12 @@ export function AppLayout() {
       )}
 
       <div className={cn("flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-hidden bg-background")}>
+        <EmailVerificationBanner />
         <AppHeader onOpenMenu={() => setMenuOpen(true)} />
-        <main className="min-h-0 min-w-0 max-w-full flex-1 overflow-y-auto overflow-x-hidden overscroll-contain bg-background pb-24 md:pb-8">
+        <main
+          id="app-scroll-container"
+          className="min-h-0 min-w-0 max-w-full flex-1 overflow-y-auto overflow-x-hidden overscroll-contain bg-background pb-24 md:pb-8"
+        >
           <Outlet />
         </main>
         <BottomNav />

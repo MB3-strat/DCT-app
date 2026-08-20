@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, CheckCheck, CheckCircle2, CreditCard, Download, Lock, RefreshCw, Send, Star } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, CreditCard, Download, Info, Loader2, Lock, RefreshCw, Send, Star } from "lucide-react";
 import { PageContainer } from "@/components/app/PageContainer";
 import { DisclaimerBanner } from "@/components/DisclaimerBanner";
 import { Button } from "@/components/ui/button";
@@ -77,31 +77,65 @@ const EMPTY_FORM: FeedbackForm = {
 };
 
 export default function FeedbackCpd() {
-  const { user, session, refreshUser } = useAuth();
-  const { read, markAllRead, syncReadProgress } = useLibrary();
+  const { user, getIdToken, refreshUser, confirmingCertificate, confirmCertificateAfterCheckout } = useAuth();
+  const { read, syncReadProgress } = useLibrary();
   const readModuleIds = useMemo(() => new Set(read.filter((id) => id.startsWith("M"))), [read]);
   const allModulesRead = readModuleIds.size >= MODULES.length;
   const [form, setForm] = useState<FeedbackForm>(() => readJSON<FeedbackForm>(STORAGE_KEY, EMPTY_FORM));
   const [certificateBusy, setCertificateBusy] = useState(false);
   const [downloadBusy, setDownloadBusy] = useState(false);
-  const certificatePaid = user?.certificatePaymentStatus === "paid";
+  const certificatePaid = user?.certificatePurchased ?? false;
 
   useEffect(() => writeJSON(STORAGE_KEY, form), [form]);
 
+  // This is a one-time payment (mode: "payment"), not a subscription — if
+  // the user impatiently clicks "Pay €5" again before certificatePurchased
+  // flips to true, that creates a *second real Stripe charge*, not just a
+  // stale UI state. The actual confirmation poll (and the `confirming` flag)
+  // lives in AuthContext, not here, specifically so it keeps running — and
+  // keeps the button disabled — even if the user navigates away and back
+  // before it resolves.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("certificate") === "success") {
-      toast.success("Certificate payment received. Refreshing status...");
-      void refreshUser();
+      toast.success("Payment received — confirming your certificate...");
+      confirmCertificateAfterCheckout();
     }
     if (params.get("certificate") === "cancelled") {
       toast.message("Certificate payment was cancelled.");
     }
-  }, [refreshUser]);
+    if (params.get("certificate") === "paid") {
+      // Server-side found this was already paid via Stripe directly (not
+      // our own KV, which can lag) and skipped creating a duplicate charge.
+      // Kick the poll anyway in case our own status read just hasn't caught
+      // up yet.
+      toast.message("Certificate already paid — refreshing your status...");
+      confirmCertificateAfterCheckout();
+    }
+    if (params.has("certificate")) {
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+    // Runs once on mount to handle the Stripe redirect query param.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function update<K extends keyof FeedbackForm>(key: K, value: FeedbackForm[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
+
+  // Default "Full name for certificate" to the user's current profile name
+  // (Account page fullName, falling back to their Auth display name) rather
+  // than leaving it blank. Only fills it in while it's still empty, so this
+  // never overwrites a value someone already typed or previously saved to
+  // this form.
+  useEffect(() => {
+    if (user?.name && !form.fullName) {
+      update("fullName", user.name);
+    }
+    // Only re-run when the profile name itself changes — not on every
+    // form.fullName edit, or this would fight the user while they type.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.name]);
 
   function toggleList(key: "sections" | "confirmations", value: string) {
     setForm((prev) => {
@@ -113,6 +147,11 @@ export default function FeedbackCpd() {
     });
   }
 
+  // The certificate-specific fields (name, registration number, CPD
+  // confirmations) are only shown once all modules are read — see the CPD
+  // FormSection below — so they're only required to save once they're
+  // actually reachable. Someone who hasn't finished the modules yet can
+  // still fill in and save the general feedback survey.
   const requiredComplete = Boolean(
     form.usefulness &&
       form.confidenceBefore &&
@@ -120,9 +159,8 @@ export default function FeedbackCpd() {
       form.changedApproach &&
       form.recommend &&
       form.rating > 0 &&
-      form.fullName.trim() &&
-      form.registrationNumber.trim() &&
-      form.confirmations.length === CONFIRMATIONS.length,
+      (!allModulesRead ||
+        (form.fullName.trim() && form.registrationNumber.trim() && form.confirmations.length === CONFIRMATIONS.length)),
   );
 
   function submit(e: FormEvent) {
@@ -132,7 +170,8 @@ export default function FeedbackCpd() {
   }
 
   async function openCertificateCheckout() {
-    if (!session?.access_token) {
+    const idToken = await getIdToken();
+    if (!idToken) {
       toast.error("Please sign in again before opening certificate checkout.");
       return;
     }
@@ -143,7 +182,7 @@ export default function FeedbackCpd() {
 
       const response = await fetch("/api/stripe-certificate-checkout", {
         method: "POST",
-        headers: { Authorization: `Bearer ${session.access_token}` },
+        headers: { Authorization: `Bearer ${idToken}` },
       });
       const payload = await response.json();
 
@@ -159,7 +198,8 @@ export default function FeedbackCpd() {
   }
 
   async function downloadCertificate() {
-    if (!session?.access_token) {
+    const idToken = await getIdToken();
+    if (!idToken) {
       toast.error("Please sign in again before downloading the certificate.");
       return;
     }
@@ -169,7 +209,7 @@ export default function FeedbackCpd() {
       const response = await fetch("/api/certificate-download", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${idToken}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -214,39 +254,6 @@ export default function FeedbackCpd() {
     }
   }
 
-  if (!allModulesRead) {
-    return (
-      <PageContainer className="min-h-full max-w-3xl">
-        <Link to="/app/modules" className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-4 w-4" /> Modules
-        </Link>
-        <div className="rounded-2xl border border-border bg-card p-8 text-center">
-          <Lock className="mx-auto mb-3 h-9 w-9 text-muted-foreground" />
-          <h1 className="font-serif text-2xl font-semibold">Feedback &amp; CPD unlocks at 100%</h1>
-          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-            Mark all handbook modules as read to unlock the feedback form and CPD confirmation.
-          </p>
-          <div className="mx-auto mt-5 max-w-sm">
-            <div className="mb-2 text-sm font-semibold text-muted-foreground">
-              {readModuleIds.size} of {MODULES.length} modules complete
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-muted">
-              <div className="h-full bg-brand-green" style={{ width: `${Math.round((readModuleIds.size / MODULES.length) * 100)}%` }} />
-            </div>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => markAllRead(MODULES.map((module) => module.id))}
-            className="mt-6 gap-1.5 rounded-full"
-          >
-            <CheckCheck className="h-4 w-4" /> Mark all as read
-          </Button>
-        </div>
-      </PageContainer>
-    );
-  }
-
   return (
     <PageContainer className="min-h-full max-w-4xl">
       <Link to="/app/modules" className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground">
@@ -257,13 +264,27 @@ export default function FeedbackCpd() {
         <div className="text-xs font-semibold uppercase tracking-[0.14em] text-white/60">
           Feedback & CPD
         </div>
-        <h1 className="mt-2 font-serif text-3xl font-semibold">You've completed the DCT Survival Kit</h1>
+        <h1 className="mt-2 font-serif text-3xl font-semibold">
+          {allModulesRead ? "You've completed the DCT Survival Kit" : "Share your feedback"}
+        </h1>
         <p className="mt-2 max-w-2xl text-white/80">
-          Complete this short feedback form to record your reflection and CPD confirmation.
+          Complete this short feedback form to record your reflection
+          {allModulesRead ? " and CPD confirmation." : ". The CPD certificate unlocks once you've read every module."}
         </p>
       </div>
 
       <DisclaimerBanner className="mt-6" compact />
+
+      <div className="mt-6 flex items-start gap-2.5 rounded-lg border border-brand-gold/40 bg-brand-gold/10 px-4 py-3 text-brand-gold-ink">
+        <Info className="mt-0.5 h-5 w-5 flex-shrink-0" />
+        <div className="text-sm">
+          <p>All fields in the survey below are required — the "Save feedback" button unlocks once everything is filled in.</p>
+          <p className="mt-1">
+            The CPD certificate section unlocks once you've read every module, and its €5 payment button unlocks
+            once you've saved your feedback.
+          </p>
+        </div>
+      </div>
 
       {form.submitted && (
         <div className="mt-6 rounded-xl border border-success/30 bg-success/10 p-5">
@@ -324,71 +345,111 @@ export default function FeedbackCpd() {
         </FormSection>
 
         <FormSection title="4-hour CPD certificate details">
-          <p className="text-sm text-muted-foreground">
-            The DCT Survival Kit is designed to support 4 hours of structured/self-directed continuing professional development.
-          </p>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="text-sm font-semibold" htmlFor="fullName">Full name for certificate</label>
-              <Input id="fullName" value={form.fullName} onChange={(e) => update("fullName", e.target.value)} className="mt-2" />
+          {!allModulesRead ? (
+            <div className="rounded-xl border border-dashed border-border bg-muted/40 p-6 text-center">
+              <Lock className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
+              <p className="font-semibold">Complete all modules to unlock the CPD certificate</p>
+              <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
+                You can still fill in and save the feedback survey above — come back to this section once you've
+                read every module.
+              </p>
+              <div className="mx-auto mt-4 max-w-xs">
+                <div className="mb-1.5 text-xs font-semibold text-muted-foreground">
+                  {readModuleIds.size} of {MODULES.length} modules complete
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full bg-brand-green"
+                    style={{ width: `${Math.round((readModuleIds.size / MODULES.length) * 100)}%` }}
+                  />
+                </div>
+              </div>
+              <Link
+                to="/app/modules"
+                className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-green hover:underline"
+              >
+                Go to modules <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
             </div>
-            <div>
-              <label className="text-sm font-semibold" htmlFor="registrationNumber">GDC/GMC number</label>
-              <Input id="registrationNumber" value={form.registrationNumber} onChange={(e) => update("registrationNumber", e.target.value)} className="mt-2" />
-            </div>
-          </div>
+          ) : (
+            <>
+              <p className="text-sm text-muted-foreground">
+                The DCT Survival Kit is designed to support 4 hours of structured/self-directed continuing professional development.
+              </p>
 
-          <CheckboxField
-            label="Before requesting a certificate, confirm:"
-            options={CONFIRMATIONS}
-            value={form.confirmations}
-            onToggle={(value) => toggleList("confirmations", value)}
-          />
-
-          <div className="rounded-xl border border-border bg-background p-4">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h3 className="font-serif text-lg font-semibold">CPD certificate</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Unlock the certificate after all modules are complete and the €5 Stripe payment is confirmed.
-                </p>
-                {certificatePaid && user?.certificatePaidAt && (
-                  <p className="mt-1 text-xs font-semibold text-success">Paid on {user.certificatePaidAt}</p>
-                )}
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="text-sm font-semibold" htmlFor="fullName">Full name for certificate</label>
+                  <Input id="fullName" value={form.fullName} onChange={(e) => update("fullName", e.target.value)} className="mt-2" />
+                </div>
+                <div>
+                  <label className="text-sm font-semibold" htmlFor="registrationNumber">GDC/GMC number</label>
+                  <Input id="registrationNumber" value={form.registrationNumber} onChange={(e) => update("registrationNumber", e.target.value)} className="mt-2" />
+                </div>
               </div>
 
-              {certificatePaid ? (
-                <Button type="button" onClick={downloadCertificate} disabled={downloadBusy} className="gap-2 rounded-full">
-                  <Download className="h-4 w-4" /> {downloadBusy ? "Preparing..." : "Download certificate"}
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  onClick={openCertificateCheckout}
-                  disabled={!form.submitted || certificateBusy}
-                  className="gap-2 rounded-full"
-                >
-                  <CreditCard className="h-4 w-4" /> {certificateBusy ? "Opening..." : "Pay €5"}
-                </Button>
-              )}
-            </div>
+              <CheckboxField
+                label="Before requesting a certificate, confirm:"
+                options={CONFIRMATIONS}
+                value={form.confirmations}
+                onToggle={(value) => toggleList("confirmations", value)}
+              />
 
-            {!form.submitted && (
-              <p className="mt-3 text-xs text-muted-foreground">
-                Save the feedback form first, then the certificate payment button will unlock.
-              </p>
-            )}
-            {!certificatePaid && form.submitted && (
-              <button
-                type="button"
-                onClick={() => refreshUser()}
-                className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
-              >
-                <RefreshCw className="h-3.5 w-3.5" /> Refresh payment status after checkout
-              </button>
-            )}
-          </div>
+              <div className="rounded-xl border border-border bg-background p-4">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <h3 className="font-serif text-lg font-semibold">CPD certificate</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Unlock the certificate after all modules are complete and the €5 Stripe payment is confirmed.
+                    </p>
+                    {certificatePaid && user?.certificatePaidAt && (
+                      <p className="mt-1 text-xs font-semibold text-success">Paid on {user.certificatePaidAt}</p>
+                    )}
+                  </div>
+
+                  {certificatePaid ? (
+                    <Button type="button" onClick={downloadCertificate} disabled={downloadBusy} className="gap-2 rounded-full">
+                      <Download className="h-4 w-4" /> {downloadBusy ? "Preparing..." : "Download certificate"}
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      onClick={openCertificateCheckout}
+                      disabled={!form.submitted || certificateBusy || confirmingCertificate}
+                      className="gap-2 rounded-full"
+                    >
+                      <CreditCard className="h-4 w-4" />
+                      {confirmingCertificate ? "Confirming payment..." : certificateBusy ? "Opening..." : "Pay €5"}
+                    </Button>
+                  )}
+                </div>
+
+                {confirmingCertificate && (
+                  <div className="mt-3 flex items-start gap-2 rounded-lg border border-brand-green/40 bg-brand-green/10 px-3 py-2 text-brand-green">
+                    <Loader2 className="mt-0.5 h-4 w-4 flex-shrink-0 animate-spin" />
+                    <p className="text-xs">
+                      Confirming your payment with Stripe — this is usually quick, but can occasionally take up to a
+                      minute. The button stays disabled until this finishes, so you won't be charged twice.
+                    </p>
+                  </div>
+                )}
+                {!form.submitted && (
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Save the feedback form first, then the certificate payment button will unlock.
+                  </p>
+                )}
+                {!certificatePaid && form.submitted && !confirmingCertificate && (
+                  <button
+                    type="button"
+                    onClick={() => refreshUser()}
+                    className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" /> Refresh payment status after checkout
+                  </button>
+                )}
+              </div>
+            </>
+          )}
         </FormSection>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -397,7 +458,9 @@ export default function FeedbackCpd() {
           </Button>
           {!requiredComplete && (
             <p className="text-sm text-muted-foreground">
-              Complete the required rating, recommendation, certificate details and CPD confirmations to save.
+              {allModulesRead
+                ? "Complete the required rating, recommendation, certificate details and CPD confirmations to save."
+                : "Complete the required rating and recommendation above to save your feedback."}
             </p>
           )}
         </div>

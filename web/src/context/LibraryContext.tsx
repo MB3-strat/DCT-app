@@ -3,19 +3,26 @@ import {
   useContext,
   useCallback,
   useEffect,
+  useRef,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
+import {
+  collection,
+  getDocs,
+  doc,
+  writeBatch,
+  serverTimestamp,
+} from "firebase/firestore";
 import { readJSON, writeJSON } from "@/lib/storage";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
 
 /**
  * Bookmarks, read-progress and recently-viewed state.
- * Persisted to localStorage for now; the shape is intentionally
- * backend-friendly (arrays of content ids) so it can sync to a
- * user account later without changing consumers.
+ * Persisted to localStorage first, synced to Firestore
+ * (profiles/{uid}/bookmarks, profiles/{uid}/progress) when signed in.
  */
 
 export interface RecentEntry {
@@ -33,7 +40,6 @@ interface LibraryValue {
   isRead: (id: string) => boolean;
   toggleRead: (id: string) => void;
   markRead: (id: string) => void;
-  markAllRead: (ids: string[]) => void;
   syncReadProgress: (ids: string[]) => Promise<void>;
   pushRecent: (id: string, kind: "module" | "toolkit") => void;
   clearRecent: () => void;
@@ -57,31 +63,47 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     () => readJSON<Record<string, number[]>>("checklists", {}),
   );
 
+  // Tracks what's already been written to Firestore, so writes only sync
+  // the delta instead of re-writing every doc on every local change.
+  const syncedBookmarks = useRef<Set<string>>(new Set());
+  const syncedProgress = useRef<Set<string>>(new Set());
+
   useEffect(() => writeJSON("bookmarks", bookmarks), [bookmarks]);
   useEffect(() => writeJSON("read", read), [read]);
   useEffect(() => writeJSON("recent", recent), [recent]);
   useEffect(() => writeJSON("checklists", checklistState), [checklistState]);
 
   useEffect(() => {
-    if (!supabase || !user) return;
+    if (!db || !user) return;
 
     let cancelled = false;
 
     async function loadRemote() {
-      const [{ data: bookmarkRows }, { data: progressRows }] = await Promise.all([
-        supabase.from("bookmarks").select("content_id").eq("user_id", user.id),
-        supabase.from("progress").select("content_id,kind,completed_item_indexes,read").eq("user_id", user.id),
+      const [bookmarkSnap, progressSnap] = await Promise.all([
+        getDocs(collection(db!, "profiles", user!.id, "bookmarks")),
+        getDocs(collection(db!, "profiles", user!.id, "progress")),
       ]);
 
       if (cancelled) return;
 
-      setBookmarks(bookmarkRows?.map((row) => row.content_id) ?? []);
-      setRead(progressRows?.filter((row) => row.read).map((row) => row.content_id) ?? []);
+      const bookmarkIds = bookmarkSnap.docs.map((d) => d.id);
+      syncedBookmarks.current = new Set(bookmarkIds);
+      setBookmarks(bookmarkIds);
+
+      interface ProgressDoc {
+        id: string;
+        kind?: "module" | "toolkit";
+        read?: boolean;
+        completedItemIndexes?: number[];
+      }
+      const progressDocs: ProgressDoc[] = progressSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      syncedProgress.current = new Set(progressDocs.map((d) => d.id));
+      setRead(progressDocs.filter((d) => d.read).map((d) => d.id));
       setChecklistState(
         Object.fromEntries(
-          (progressRows ?? [])
-            .filter((row) => row.kind === "toolkit" && Array.isArray(row.completed_item_indexes))
-            .map((row) => [row.content_id, row.completed_item_indexes]),
+          progressDocs
+            .filter((d) => d.kind === "toolkit" && Array.isArray(d.completedItemIndexes))
+            .map((d) => [d.id, d.completedItemIndexes as number[]]),
         ),
       );
     }
@@ -94,42 +116,56 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   useEffect(() => {
-    if (!supabase || !user) return;
+    if (!db || !user) return;
 
-    void supabase.from("bookmarks").delete().eq("user_id", user.id).then(async () => {
-      if (bookmarks.length) {
-        await supabase.from("bookmarks").insert(
-          bookmarks.map((id) => ({
-            user_id: user.id,
-            content_id: id,
-            kind: id.startsWith("T") ? "toolkit" : "module",
-          })),
-        );
-      }
+    const current = new Set(bookmarks);
+    const previous = syncedBookmarks.current;
+    const toAdd = bookmarks.filter((id) => !previous.has(id));
+    const toRemove = [...previous].filter((id) => !current.has(id));
+    if (toAdd.length === 0 && toRemove.length === 0) return;
+
+    const batch = writeBatch(db);
+    for (const id of toAdd) {
+      batch.set(doc(db, "profiles", user.id, "bookmarks", id), {
+        kind: id.startsWith("T") ? "toolkit" : "module",
+        createdAt: serverTimestamp(),
+      });
+    }
+    for (const id of toRemove) {
+      batch.delete(doc(db, "profiles", user.id, "bookmarks", id));
+    }
+    void batch.commit().then(() => {
+      syncedBookmarks.current = current;
     });
   }, [bookmarks, user]);
 
   useEffect(() => {
-    if (!supabase || !user) return;
+    if (!db || !user) return;
 
-    const readRows = read.map((id) => ({
-      user_id: user.id,
-      content_id: id,
-      kind: id.startsWith("T") ? "toolkit" : "module",
-      read: true,
-      updated_at: new Date().toISOString(),
-    }));
+    const readIds = new Set(read);
+    const checklistIds = Object.keys(checklistState);
+    const touchedIds = new Set([...readIds, ...checklistIds]);
+    const toSync = [...touchedIds].filter((id) => {
+      // Re-sync anything not yet written, or whose checklist progress changed.
+      return !syncedProgress.current.has(id) || checklistIds.includes(id);
+    });
+    if (toSync.length === 0) return;
 
-    const checklistRows = Object.entries(checklistState).map(([id, indexes]) => ({
-      user_id: user.id,
-      content_id: id,
-      kind: "toolkit",
-      completed_item_indexes: indexes,
-      updated_at: new Date().toISOString(),
-    }));
-
-    void supabase.from("progress").upsert([...readRows, ...checklistRows], {
-      onConflict: "user_id,content_id",
+    const batch = writeBatch(db);
+    for (const id of toSync) {
+      batch.set(
+        doc(db, "profiles", user.id, "progress", id),
+        {
+          kind: id.startsWith("T") ? "toolkit" : "module",
+          read: readIds.has(id),
+          completedItemIndexes: checklistState[id] ?? [],
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      );
+    }
+    void batch.commit().then(() => {
+      syncedProgress.current = new Set([...syncedProgress.current, ...touchedIds]);
     });
   }, [read, checklistState, user]);
 
@@ -149,29 +185,29 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     setRead((prev) => (prev.includes(id) ? prev : [...prev, id]));
   }, []);
 
-  const markAllRead = useCallback((ids: string[]) => {
-    setRead((prev) => Array.from(new Set([...prev, ...ids])));
-  }, []);
+  const syncReadProgress = useCallback(
+    async (ids: string[]) => {
+      setRead((prev) => Array.from(new Set([...prev, ...ids])));
 
-  const syncReadProgress = useCallback(async (ids: string[]) => {
-    setRead((prev) => Array.from(new Set([...prev, ...ids])));
+      if (!db || !user || ids.length === 0) return;
 
-    if (!supabase || !user || ids.length === 0) return;
-
-    const rows = ids.map((id) => ({
-      user_id: user.id,
-      content_id: id,
-      kind: id.startsWith("T") ? "toolkit" : "module",
-      read: true,
-      updated_at: new Date().toISOString(),
-    }));
-
-    const { error } = await supabase.from("progress").upsert(rows, {
-      onConflict: "user_id,content_id",
-    });
-
-    if (error) throw error;
-  }, [user]);
+      const batch = writeBatch(db);
+      for (const id of ids) {
+        batch.set(
+          doc(db, "profiles", user.id, "progress", id),
+          {
+            kind: id.startsWith("T") ? "toolkit" : "module",
+            read: true,
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true },
+        );
+      }
+      await batch.commit();
+      syncedProgress.current = new Set([...syncedProgress.current, ...ids]);
+    },
+    [user],
+  );
 
   const pushRecent = useCallback((id: string, kind: "module" | "toolkit") => {
     setRecent((prev) => {
@@ -206,7 +242,6 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       isRead: (id) => read.includes(id),
       toggleRead,
       markRead,
-      markAllRead,
       syncReadProgress,
       pushRecent,
       clearRecent,
@@ -221,7 +256,6 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       toggleBookmark,
       toggleRead,
       markRead,
-      markAllRead,
       syncReadProgress,
       pushRecent,
       clearRecent,

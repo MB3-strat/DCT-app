@@ -1,15 +1,21 @@
+import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
 import {
   User, Mail, BadgeCheck, CreditCard, WifiOff, FileWarning,
   Wrench, LogOut, ShieldCheck, FileText, BookOpen, Trash2,
 } from "lucide-react";
+import { collection, getDocs, doc, deleteDoc, writeBatch, query, where } from "firebase/firestore";
+import { deleteUser, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
 import { PageContainer, PageHeading } from "@/components/app/PageContainer";
 import { useAuth } from "@/context/AuthContext";
+import { db } from "@/lib/firebase";
+import { friendlyAuthError } from "@/lib/authErrors";
 
 export default function Account() {
-  const { user, session, logout } = useAuth();
+  const { user, firebaseUser, logout, getIdToken } = useAuth();
   const navigate = useNavigate();
+  const [deleting, setDeleting] = useState(false);
 
   if (!user) return null;
 
@@ -21,37 +27,116 @@ export default function Account() {
     none: "No subscription",
   };
 
-  async function deleteAllInfo() {
-    if (!session?.access_token) {
-      toast.error("Please sign in again before deleting data.");
+  // Firebase requires a "recent" sign-in (a short window, unrelated to how
+  // long the app session has been open) before it will allow a
+  // security-sensitive action like deleteUser(). Someone who's been working
+  // in the app for a while before deleting their account — e.g. completing
+  // CPD feedback first — routinely signs in "too long ago" for Firebase's
+  // liking, and would previously hit auth/requires-recent-login only *after*
+  // Firestore/KV data had already been wiped, leaving an orphaned Auth
+  // account with no data behind. Check freshness up front and reauthenticate
+  // before touching anything, so deletion either fully succeeds or doesn't
+  // start.
+  async function ensureRecentLogin() {
+    if (!firebaseUser) return;
+
+    const lastSignInMs = firebaseUser.metadata.lastSignInTime
+      ? new Date(firebaseUser.metadata.lastSignInTime).getTime()
+      : 0;
+    const isStale = Date.now() - lastSignInMs > 5 * 60 * 1000;
+    if (!isStale) return;
+
+    const password = window.prompt(
+      "For security, please re-enter your password to confirm account deletion:",
+    );
+    if (!password) {
+      throw new Error("Account deletion cancelled — password confirmation is required.");
+    }
+
+    try {
+      const credential = EmailAuthProvider.credential(firebaseUser.email ?? "", password);
+      await reauthenticateWithCredential(firebaseUser, credential);
+    } catch (error) {
+      throw new Error(
+        friendlyAuthError(error, "That password wasn't right. Please try deleting your account again."),
+      );
+    }
+  }
+
+  // Full account deletion (GDPR/UK GDPR right to erasure) — not just an app
+  // data reset. Order matters: reauthentication (if needed) happens first,
+  // before any data is touched; everything that needs the current sign-in
+  // session runs next; deleteUser() runs last since it invalidates that
+  // session immediately. Every step here is safe to retry (deleting an
+  // already-deleted doc/KV key is a no-op), so if this still fails partway
+  // for some other reason, the user can retry without side effects.
+  async function deleteAccount() {
+    if (!user || !firebaseUser || !db) {
+      toast.error("Please sign in again before deleting your account.");
       return;
     }
 
     const confirmed = window.confirm(
-      "Delete your bookmarks, progress, Trust settings and issue-report records? This cannot be undone.",
+      "Permanently delete your account and all your data? This cannot be undone. " +
+        "Your profile, bookmarks, progress and subscription record will all be removed. " +
+        "(Issue reports you've submitted are kept for safety auditing, but will no longer be linked to your account.)",
     );
 
     if (!confirmed) return;
 
-    const response = await fetch("/api/delete-account-data", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
+    setDeleting(true);
+    try {
+      await ensureRecentLogin();
 
-    if (!response.ok) {
-      const payload = await response.json().catch(() => ({}));
-      toast.error(payload.error || "Could not delete your data.");
-      return;
-    }
+      const idToken = await getIdToken();
+      if (!idToken) throw new Error("Please sign in again before deleting your account.");
 
-    for (const key of Object.keys(window.localStorage)) {
-      if (key.startsWith("dct:")) {
-        window.localStorage.removeItem(key);
+      // The one piece of data this app can't reach from the client —
+      // the Cloudflare KV subscription/billing record.
+      const response = await fetch("/api/delete-account", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || "Could not delete your subscription record.");
       }
-    }
 
-    toast.success("Your app data has been deleted.");
-    window.location.reload();
+      // Sever the link from any issue reports back to this account, without
+      // deleting the reports themselves (kept as an audit/safety record).
+      const issuesSnap = await getDocs(query(collection(db, "reportedIssues"), where("userId", "==", user.id)));
+      if (!issuesSnap.empty) {
+        const anonymizeBatch = writeBatch(db);
+        issuesSnap.docs.forEach((d) => anonymizeBatch.update(d.ref, { userId: null }));
+        await anonymizeBatch.commit();
+      }
+
+      // Delete bookmarks + progress subcollections, then the profile doc itself.
+      const [bookmarksSnap, progressSnap] = await Promise.all([
+        getDocs(collection(db, "profiles", user.id, "bookmarks")),
+        getDocs(collection(db, "profiles", user.id, "progress")),
+      ]);
+      const deleteBatch = writeBatch(db);
+      bookmarksSnap.docs.forEach((d) => deleteBatch.delete(d.ref));
+      progressSnap.docs.forEach((d) => deleteBatch.delete(d.ref));
+      await deleteBatch.commit();
+      await deleteDoc(doc(db, "profiles", user.id));
+
+      for (const key of Object.keys(window.localStorage)) {
+        if (key.startsWith("dct:")) window.localStorage.removeItem(key);
+      }
+
+      // Last step, deliberately — invalidates the session everything above
+      // relied on.
+      await deleteUser(firebaseUser);
+
+      toast.success("Your account and all your data have been deleted.");
+      navigate("/", { replace: true });
+    } catch (error) {
+      toast.error(friendlyAuthError(error, "Could not delete your account. Please try again."));
+    } finally {
+      setDeleting(false);
+    }
   }
 
   return (
@@ -123,10 +208,11 @@ export default function Account() {
         <LogOut className="h-4 w-4" /> Sign out
       </button>
       <button
-        onClick={deleteAllInfo}
-        className="ml-3 mt-8 inline-flex items-center gap-2 rounded-full border border-destructive/30 px-5 py-2.5 font-semibold text-destructive hover:bg-destructive/10"
+        onClick={deleteAccount}
+        disabled={deleting}
+        className="ml-3 mt-8 inline-flex items-center gap-2 rounded-full border border-destructive/30 px-5 py-2.5 font-semibold text-destructive hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <Trash2 className="h-4 w-4" /> Delete all info
+        <Trash2 className="h-4 w-4" /> {deleting ? "Deleting account..." : "Delete account"}
       </button>
     </PageContainer>
   );

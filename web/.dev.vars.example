@@ -1,0 +1,24 @@
+# Local env vars for Cloudflare Pages Functions (`wrangler pages dev`).
+#
+# IMPORTANT: this is a SEPARATE file from .env.local. Vite only reads
+# .env.local, and only exposes VITE_* keys to the browser bundle — it never
+# reaches the Functions runtime in web/functions/api/*. Wrangler only reads
+# from .dev.vars (or --var flags) for that. Without this file, every var
+# below is undefined when a Function runs locally, even if it's set in
+# .env.local.
+#
+# Copy this file to .dev.vars (gitignored) and fill in real values:
+#   cp .dev.vars.example .dev.vars
+
+FIREBASE_PROJECT_ID=your-project
+
+# Optional — only needed to force a specific canonical URL (e.g. in
+# production). Leave unset locally: getAppUrl() now falls back to the
+# request's own origin, so Stripe redirects correctly land back on
+# whatever host/port you're actually running `wrangler pages dev` on.
+# APP_URL=
+
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_DCT_PRICE_ID=price_...
+STRIPE_CERTIFICATE_PRICE_ID=price_...
+STRIPE_WEBHOOK_SECRET=whsec_...

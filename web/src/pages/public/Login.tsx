@@ -3,6 +3,7 @@ import { useNavigate, Link, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { AuthShell } from "@/components/public/AuthShell";
 import { useAuth } from "@/context/AuthContext";
+import { friendlyAuthError } from "@/lib/authErrors";
 
 export default function Login() {
   const { login, isAuthed, loading } = useAuth();
@@ -28,7 +29,7 @@ export default function Login() {
       toast.success("Signed in.");
       navigate("/app", { replace: true });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Unable to sign in.");
+      toast.error(friendlyAuthError(error, "Unable to sign in. Please try again."));
     } finally {
       setBusy(false);
     }
@@ -91,7 +92,7 @@ export default function Login() {
           {busy ? "Please wait..." : "Sign in"}
         </button>
         <p className="text-center text-xs text-muted-foreground">
-          Access is verified through Supabase and subscription status is updated
+          Access is verified through Firebase and subscription status is updated
           by Stripe webhook events.
         </p>
       </form>

@@ -7,13 +7,34 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { Session } from "@supabase/supabase-js";
-import { isSupabaseConfigured, supabase, getRedirectUrl } from "@/lib/supabase";
+import {
+  onAuthStateChanged,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signInWithEmailLink,
+  isSignInWithEmailLink,
+  sendSignInLinkToEmail,
+  sendEmailVerification,
+  signOut as firebaseSignOut,
+  updateProfile,
+  type User as FirebaseUser,
+} from "firebase/auth";
+import {
+  doc,
+  getDoc,
+  setDoc,
+  onSnapshot,
+  serverTimestamp,
+  type Unsubscribe,
+} from "firebase/firestore";
+import { toast } from "sonner";
+import { auth, db, getRedirectUrl } from "@/lib/firebase";
 
 /**
- * Supabase-backed auth and subscription state.
- * Subscription access is derived from the profiles table, which is updated by
- * Stripe webhooks. The client never marks a payment successful.
+ * Firebase-backed auth. Subscription/certificate state lives in Cloudflare
+ * KV (not Firestore) and is fetched from /api/subscription-status, since
+ * it's written exclusively by the Stripe webhook. The client never marks a
+ * payment successful itself.
  */
 
 export type Role = "subscriber" | "editor" | "clinical-reviewer" | "clinical-owner" | "admin";
@@ -29,28 +50,53 @@ export interface User {
   subscription: SubscriptionStatus;
   renewsOn?: string;
   stripeCustomerId?: string;
-  certificatePaymentStatus: "none" | "paid";
+  certificatePurchased: boolean;
   certificatePaidAt?: string;
 }
 
 interface AuthValue {
   user: User | null;
-  session: Session | null;
+  firebaseUser: FirebaseUser | null;
   loading: boolean;
   isAuthed: boolean;
   isSubscribed: boolean;
   isAdmin: boolean;
+  // Whether a post-checkout confirmation poll is currently running — lives
+  // here (not on the Billing/FeedbackCpd pages) specifically so it survives
+  // navigation. See confirmSubscriptionAfterCheckout for why that matters.
+  confirmingSubscription: boolean;
+  confirmingCertificate: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string) => Promise<void>;
+  register: (name: string, email: string, password: string) => Promise<string>;
   sendMagicLink: (email: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   updateUser: (patch: Partial<User>) => void;
+  getIdToken: () => Promise<string | null>;
+  // Call after a Stripe Checkout redirect lands with ?checkout=success /
+  // ?certificate=success. Starts a background poll (living here in
+  // AuthProvider, which wraps the whole app and never unmounts) that keeps
+  // re-checking subscription/certificate status until it resolves or times
+  // out — up to ~60s, since Cloudflare KV is eventually consistent and the
+  // webhook's write can take a while to become visible to a read. Because
+  // this lives above the router, the "buy" buttons on Billing/FeedbackCpd
+  // stay correctly disabled even if the user navigates away and back (or
+  // uses browser back/forward) mid-confirmation — clicking "Subscribe" or
+  // "Pay €5" again while a real payment is still confirming would create a
+  // genuine second charge, not just a UI glitch.
+  confirmSubscriptionAfterCheckout: () => void;
+  confirmCertificateAfterCheckout: () => void;
+  // Re-sends the verification link Firebase sent at registration. Nothing
+  // in the app currently blocks on emailVerified (see EmailVerificationBanner
+  // for the nag-only reminder that uses this) — this just lets a user who
+  // missed/lost the original email get a fresh one without re-registering.
+  resendVerificationEmail: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthValue | null>(null);
 const premiumTestEmail = import.meta.env.VITE_PREMIUM_TEST_EMAIL?.trim().toLowerCase();
 const clientSessionKey = "dct:client-session-id";
+const emailForSignInKey = "dct:email-for-sign-in";
 
 function getClientSessionId() {
   const existing = window.localStorage.getItem(clientSessionKey);
@@ -64,189 +110,308 @@ function getClientSessionId() {
   return next;
 }
 
-async function claimActiveSession(accessToken: string) {
-  await fetch("/api/active-session", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ sessionId: getClientSessionId() }),
-  });
+interface SubscriptionInfo {
+  subscription: SubscriptionStatus;
+  renewsOn?: string;
+  stripeCustomerId?: string;
+  certificatePurchased: boolean;
+  certificatePaidAt?: string;
 }
 
-async function releaseActiveSession(accessToken: string) {
-  await fetch(`/api/active-session?sessionId=${encodeURIComponent(getClientSessionId())}`, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${accessToken}` },
-  }).catch(() => {});
+async function fetchSubscriptionStatus(idToken: string): Promise<SubscriptionInfo> {
+  try {
+    const response = await fetch("/api/subscription-status", {
+      headers: { Authorization: `Bearer ${idToken}` },
+    });
+    if (!response.ok) throw new Error("subscription-status request failed");
+    const data = await response.json();
+    return {
+      subscription: (data.subscriptionStatus as SubscriptionStatus) ?? "none",
+      renewsOn: data.subscriptionCurrentPeriodEnd?.slice(0, 10),
+      stripeCustomerId: data.stripeCustomerId ?? undefined,
+      certificatePurchased: data.certificatePaymentStatus === "paid",
+      certificatePaidAt: data.certificatePaidAt?.slice(0, 10),
+    };
+  } catch {
+    return { subscription: "none", certificatePurchased: false };
+  }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const loadUser = useCallback(async (activeSession?: Session | null) => {
-    if (!supabase) {
-      setUser(null);
-      setSession(null);
-      setLoading(false);
-      return;
-    }
+  const loadUser = useCallback(async (fbUser: FirebaseUser | null): Promise<User | null> => {
+    setFirebaseUser(fbUser);
 
-    const currentSession =
-      activeSession ?? (await supabase.auth.getSession()).data.session;
-    setSession(currentSession);
-
-    if (!currentSession?.user) {
+    if (!fbUser || !db) {
       setUser(null);
       setLoading(false);
-      return;
+      return null;
     }
 
-    void claimActiveSession(currentSession.access_token).catch(() => {
-      /* Existing deployments without the migration should keep working. */
-    });
+    const profileRef = doc(db, "profiles", fbUser.uid);
+    let profileSnap = await getDoc(profileRef);
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("id,email,full_name,roles,subscription_status,subscription_current_period_end,stripe_customer_id,certificate_payment_status,certificate_paid_at")
-      .eq("id", currentSession.user.id)
-      .maybeSingle();
+    if (!profileSnap.exists()) {
+      await setDoc(profileRef, {
+        email: fbUser.email ?? "",
+        fullName: fbUser.displayName ?? "",
+        roles: [],
+        trustSettings: {},
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      profileSnap = await getDoc(profileRef);
+    }
 
-    const email = profile?.email || currentSession.user.email || "";
+    const profile = profileSnap.data() ?? {};
+    const idToken = await fbUser.getIdToken();
+    const subInfo = await fetchSubscriptionStatus(idToken);
+
+    const email = fbUser.email ?? "";
     const isPremiumTestUser = Boolean(premiumTestEmail && email.toLowerCase() === premiumTestEmail);
-    const subscription = isPremiumTestUser
-      ? "active"
-      : (profile?.subscription_status as SubscriptionStatus | null) ?? "none";
+    const subscription = isPremiumTestUser ? "active" : subInfo.subscription;
     const roles = Array.from(
       new Set([
-        ...((profile?.roles as Role[] | null) ?? []),
+        ...((profile.roles as Role[] | undefined) ?? []),
         ...(isPremiumTestUser ? (["subscriber"] as Role[]) : []),
       ]),
     );
 
-    setUser({
-      id: currentSession.user.id,
-      name: profile?.full_name || currentSession.user.user_metadata?.full_name || currentSession.user.email?.split("@")[0] || "",
+    const nextUser: User = {
+      id: fbUser.uid,
+      name: profile.fullName || fbUser.displayName || email.split("@")[0] || "",
       email,
-      emailVerified: Boolean(currentSession.user.email_confirmed_at),
+      emailVerified: fbUser.emailVerified,
       roles,
       subscription,
-      renewsOn: profile?.subscription_current_period_end?.slice(0, 10),
-      stripeCustomerId: profile?.stripe_customer_id ?? undefined,
-      certificatePaymentStatus: profile?.certificate_payment_status === "paid" ? "paid" : "none",
-      certificatePaidAt: profile?.certificate_paid_at?.slice(0, 10),
-    });
+      renewsOn: subInfo.renewsOn,
+      stripeCustomerId: subInfo.stripeCustomerId,
+      certificatePurchased: subInfo.certificatePurchased,
+      certificatePaidAt: subInfo.certificatePaidAt,
+    };
+    setUser(nextUser);
     setLoading(false);
+
+    // Claim this tab as the active session (direct client write — this is
+    // the user's own document and doesn't need server privilege).
+    await setDoc(
+      profileRef,
+      { activeSessionId: getClientSessionId(), activeSessionAt: serverTimestamp() },
+      { merge: true },
+    ).catch(() => {});
+
+    return nextUser;
   }, []);
 
   useEffect(() => {
-    void loadUser();
+    if (!auth) {
+      setLoading(false);
+      return;
+    }
 
-    if (!supabase) return;
-
-    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      void loadUser(nextSession);
-    });
-
-    return () => data.subscription.unsubscribe();
-  }, [loadUser]);
-
-  useEffect(() => {
-    if (!supabase || !user || !session?.access_token) return;
-
-    let cancelled = false;
-
-    async function checkActiveSession() {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("active_session_id")
-        .eq("id", user!.id)
-        .maybeSingle();
-
-      if (cancelled || error) return;
-
-      const activeSessionId = data?.active_session_id;
-      if (activeSessionId && activeSessionId !== getClientSessionId()) {
-        await supabase!.auth.signOut();
-        setUser(null);
-        setSession(null);
+    if (isSignInWithEmailLink(auth, window.location.href)) {
+      let email = window.localStorage.getItem(emailForSignInKey);
+      if (!email) {
+        email = window.prompt("Confirm your email to finish signing in") ?? "";
+      }
+      if (email) {
+        void signInWithEmailLink(auth, email, window.location.href).then(() => {
+          window.localStorage.removeItem(emailForSignInKey);
+          window.history.replaceState(null, "", window.location.pathname);
+        });
       }
     }
 
-    const interval = window.setInterval(() => {
-      void checkActiveSession();
-    }, 15000);
+    const unsubscribe = onAuthStateChanged(auth, (fbUser) => {
+      void loadUser(fbUser);
+    });
 
-    void checkActiveSession();
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-    };
-  }, [user, session]);
-
-  const login = useCallback(async (email: string, password: string) => {
-    if (!supabase) throw new Error("Supabase is not configured.");
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
-    await loadUser(data.session);
+    return () => unsubscribe();
   }, [loadUser]);
 
-  const register = useCallback(async (name: string, email: string, password: string) => {
-    if (!supabase) throw new Error("Supabase is not configured.");
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: name },
-        emailRedirectTo: getRedirectUrl("/app"),
-      },
+  // Real-time single-active-session enforcement: if another device claims
+  // this profile's activeSessionId, sign this tab out immediately.
+  useEffect(() => {
+    if (!db || !user) return;
+
+    const profileRef = doc(db, "profiles", user.id);
+    const unsubscribe: Unsubscribe = onSnapshot(profileRef, (snap) => {
+      const activeSessionId = snap.data()?.activeSessionId as string | undefined;
+      if (activeSessionId && activeSessionId !== getClientSessionId()) {
+        void auth?.signOut();
+        setUser(null);
+      }
     });
-    if (error) throw error;
+
+    return () => unsubscribe();
+  }, [user?.id]);
+
+  const login = useCallback(
+    async (email: string, password: string) => {
+      if (!auth) throw new Error("Firebase is not configured.");
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      await loadUser(cred.user);
+    },
+    [loadUser],
+  );
+
+  const register = useCallback(async (name: string, email: string, password: string) => {
+    if (!auth) throw new Error("Firebase is not configured.");
+    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    if (name) {
+      await updateProfile(cred.user, { displayName: name });
+    }
+    await sendEmailVerification(cred.user, {
+      url: getRedirectUrl("/app"),
+      handleCodeInApp: true,
+    });
+    // Returned so the signup flow can send the user straight to Stripe
+    // checkout without waiting for onAuthStateChanged to settle.
+    return cred.user.getIdToken();
   }, []);
 
-  const sendMagicLink = useCallback(async (email: string) => {
-    if (!supabase) throw new Error("Supabase is not configured.");
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: getRedirectUrl("/app") },
+  const resendVerificationEmail = useCallback(async () => {
+    if (!firebaseUser) throw new Error("Please sign in again before resending the verification email.");
+    await sendEmailVerification(firebaseUser, {
+      url: getRedirectUrl("/app"),
+      handleCodeInApp: true,
     });
-    if (error) throw error;
+  }, [firebaseUser]);
+
+  const sendMagicLink = useCallback(async (email: string) => {
+    if (!auth) throw new Error("Firebase is not configured.");
+    await sendSignInLinkToEmail(auth, email, {
+      url: getRedirectUrl("/app"),
+      handleCodeInApp: true,
+    });
+    window.localStorage.setItem(emailForSignInKey, email);
   }, []);
 
   const logout = useCallback(async () => {
-    if (!supabase) return;
-    if (session?.access_token) {
-      await releaseActiveSession(session.access_token);
+    if (!auth) return;
+
+    if (db && firebaseUser) {
+      const profileRef = doc(db, "profiles", firebaseUser.uid);
+      const snap = await getDoc(profileRef).catch(() => null);
+      if (snap?.data()?.activeSessionId === getClientSessionId()) {
+        await setDoc(profileRef, { activeSessionId: null, activeSessionAt: null }, { merge: true }).catch(
+          () => {},
+        );
+      }
     }
-    await supabase.auth.signOut();
+
+    await firebaseSignOut(auth);
     setUser(null);
-    setSession(null);
-  }, [session]);
+    setFirebaseUser(null);
+  }, [firebaseUser]);
 
   const updateUser = useCallback((patch: Partial<User>) => {
     setUser((prev) => (prev ? { ...prev, ...patch } : prev));
   }, []);
 
+  const getIdToken = useCallback(async () => {
+    if (!firebaseUser) return null;
+    return firebaseUser.getIdToken();
+  }, [firebaseUser]);
+
+  // A stable reference (only changes when firebaseUser itself changes, not
+  // on every state update loadUser triggers) — consumers that depend on
+  // this in a useEffect array would otherwise re-run on every render.
+  const refreshUser = useCallback(() => loadUser(firebaseUser), [loadUser, firebaseUser]);
+
+  // See the AuthValue interface for why this lives here rather than on the
+  // Billing/FeedbackCpd pages: it needs to survive navigation.
+  const [confirmingKind, setConfirmingKind] = useState<"subscription" | "certificate" | null>(null);
+  const CONFIRM_POLL_INTERVAL_MS = 2000;
+  // Cloudflare KV is eventually consistent — a write from the webhook can
+  // take up to roughly a minute to become visible to a read from here, even
+  // though the write itself already completed. 30 attempts at 2s covers
+  // that with room to spare.
+  const CONFIRM_MAX_ATTEMPTS = 30;
+
+  const confirmSubscriptionAfterCheckout = useCallback(() => setConfirmingKind("subscription"), []);
+  const confirmCertificateAfterCheckout = useCallback(() => setConfirmingKind("certificate"), []);
+
+  useEffect(() => {
+    if (!confirmingKind) return;
+
+    const isConfirmed = (candidate: User | null) => {
+      if (!candidate) return false;
+      return confirmingKind === "subscription"
+        ? candidate.subscription === "active" || candidate.subscription === "trialing"
+        : candidate.certificatePurchased;
+    };
+
+    const successMessage =
+      confirmingKind === "subscription" ? "You're subscribed — welcome in." : "Certificate unlocked — you can download it now.";
+
+    let cancelled = false;
+    let attempts = 0;
+    let timeoutId: number;
+
+    const poll = async () => {
+      attempts += 1;
+      const next = await loadUser(firebaseUser);
+      if (cancelled) return;
+      if (isConfirmed(next)) {
+        setConfirmingKind(null);
+        toast.success(successMessage);
+        return;
+      }
+      if (attempts >= CONFIRM_MAX_ATTEMPTS) {
+        setConfirmingKind(null);
+        return;
+      }
+      timeoutId = window.setTimeout(poll, CONFIRM_POLL_INTERVAL_MS);
+    };
+
+    timeoutId = window.setTimeout(poll, CONFIRM_POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [confirmingKind, firebaseUser, loadUser]);
+
   const value = useMemo<AuthValue>(
     () => ({
       user,
-      session,
+      firebaseUser,
       loading,
       isAuthed: !!user,
       isSubscribed: !!user && (user.subscription === "active" || user.subscription === "trialing"),
       isAdmin: !!user && user.roles.includes("admin"),
+      confirmingSubscription: confirmingKind === "subscription",
+      confirmingCertificate: confirmingKind === "certificate",
       login,
       register,
       sendMagicLink,
       logout,
-      refreshUser: () => loadUser(),
+      refreshUser,
       updateUser,
+      getIdToken,
+      confirmSubscriptionAfterCheckout,
+      confirmCertificateAfterCheckout,
+      resendVerificationEmail,
     }),
-    [user, session, loading, login, register, sendMagicLink, logout, loadUser, updateUser],
+    [
+      user,
+      firebaseUser,
+      loading,
+      confirmingKind,
+      login,
+      register,
+      sendMagicLink,
+      logout,
+      refreshUser,
+      updateUser,
+      getIdToken,
+      confirmSubscriptionAfterCheckout,
+      confirmCertificateAfterCheckout,
+      resendVerificationEmail,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

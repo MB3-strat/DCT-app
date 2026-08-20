@@ -9,7 +9,7 @@ export default function Contact() {
   function submit(e: React.FormEvent) {
     e.preventDefault();
     setSent(true);
-    toast.success("Message queued (demo — no message is actually sent).");
+    toast.message("This form isn't connected to an inbox yet — nothing was sent. A support address will be published before launch.");
   }
 
   return (
@@ -51,7 +51,7 @@ export default function Contact() {
               photographs, records, or any patient-identifiable information.
             </div>
             <button type="submit" className="inline-flex items-center gap-2 rounded-full bg-brand-green px-6 py-3 font-semibold text-white hover:bg-brand-green-mid">
-              <Send className="h-4 w-4" /> {sent ? "Sent (demo)" : "Send message"}
+              <Send className="h-4 w-4" /> {sent ? "Not sent — see note above" : "Send message"}
             </button>
           </form>
 

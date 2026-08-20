@@ -1,4 +1,5 @@
-import { ArrowLeft, CreditCard, Check, ExternalLink, ShieldAlert, XCircle, LogOut } from "lucide-react";
+import { useEffect } from "react";
+import { ArrowLeft, CreditCard, Check, ExternalLink, Loader2, ShieldAlert, XCircle, LogOut } from "lucide-react";
 import { Link } from "react-router-dom";
 import { PageContainer, PageHeading } from "@/components/app/PageContainer";
 import { useAuth } from "@/context/AuthContext";
@@ -6,20 +7,57 @@ import { PRODUCT } from "@/data/meta";
 import { toast } from "sonner";
 
 export default function Billing() {
-  const { user, session, refreshUser, logout } = useAuth();
+  const { user, getIdToken, refreshUser, logout, confirmingSubscription, confirmSubscriptionAfterCheckout } =
+    useAuth();
+
+  // Firebase Auth persists the sign-in across the redirect to Stripe and
+  // back, so a user who just registered/logged in and completed checkout
+  // lands here already authenticated — no second login required. What can
+  // lag is *subscription* status: the webhook writes subscriptionStatus to
+  // Cloudflare KV as soon as Stripe's customer.subscription.created event
+  // arrives, but KV is eventually consistent — that write can take up to
+  // roughly a minute to become visible to a read from this page. The actual
+  // polling (and the "confirming" flag) lives in AuthContext, not here, so
+  // it keeps running and keeps the buy button disabled even if the user
+  // navigates away and back before it resolves.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("checkout") === "cancelled") {
+      toast.message("Checkout was cancelled.");
+    }
+    if (params.get("checkout") === "success") {
+      toast.success("Payment received — confirming your subscription...");
+      confirmSubscriptionAfterCheckout();
+    }
+    if (params.get("checkout") === "already-active") {
+      // Server-side found you already have an active subscription via
+      // Stripe directly (not our own KV, which can lag) and skipped
+      // creating a duplicate. Kick the poll anyway in case our own status
+      // read just hasn't caught up yet.
+      toast.message("You're already subscribed — refreshing your status...");
+      confirmSubscriptionAfterCheckout();
+    }
+    if (params.has("checkout")) {
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+    // Runs once on mount to handle the Stripe redirect query param.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   if (!user) return null;
   const hasStripeCustomer = Boolean(user.stripeCustomerId);
   const hasPaidSubscription = user.subscription === "active" || user.subscription === "trialing";
 
   async function openStripe(path: "/api/stripe-checkout" | "/api/stripe-portal") {
-    if (!session?.access_token) {
+    const idToken = await getIdToken();
+    if (!idToken) {
       toast.error("Please sign in again before opening billing.");
       return;
     }
 
     const response = await fetch(path, {
       method: "POST",
-      headers: { Authorization: `Bearer ${session.access_token}` },
+      headers: { Authorization: `Bearer ${idToken}` },
     });
     const payload = await response.json();
 
@@ -37,6 +75,16 @@ export default function Billing() {
         <ArrowLeft className="h-4 w-4" /> Account
       </Link>
       <PageHeading kicker="Subscription" title="Billing" description="Manage your annual subscription through Stripe." />
+
+      {confirmingSubscription && (
+        <div className="mb-6 flex items-start gap-2.5 rounded-lg border border-brand-green/40 bg-brand-green/10 px-4 py-3 text-brand-green">
+          <Loader2 className="mt-0.5 h-5 w-5 flex-shrink-0 animate-spin" />
+          <p className="text-sm">
+            Confirming your subscription with Stripe — this is usually quick, but can occasionally take up to a
+            minute. No need to refresh; this will update on its own.
+          </p>
+        </div>
+      )}
 
       <div className="mb-6 flex items-start gap-2.5 rounded-lg border border-brand-gold/40 bg-brand-gold/10 px-4 py-3 text-brand-gold-ink">
         <ShieldAlert className="mt-0.5 h-5 w-5 flex-shrink-0" />
@@ -69,10 +117,15 @@ export default function Billing() {
           <div className="mt-6 flex flex-wrap gap-3">
             <button
               onClick={() => openStripe(hasPaidSubscription && hasStripeCustomer ? "/api/stripe-portal" : "/api/stripe-checkout")}
-              className="inline-flex items-center gap-2 rounded-full bg-brand-green px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-green-mid"
+              disabled={confirmingSubscription && !hasPaidSubscription}
+              className="inline-flex items-center gap-2 rounded-full bg-brand-green px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-green-mid disabled:cursor-not-allowed disabled:opacity-50"
             >
               <ExternalLink className="h-4 w-4" />
-              {hasPaidSubscription && hasStripeCustomer ? "Open billing portal" : `Subscribe — ${PRODUCT.priceLabel}`}
+              {hasPaidSubscription && hasStripeCustomer
+                ? "Open billing portal"
+                : confirmingSubscription
+                  ? "Confirming..."
+                  : `Subscribe — ${PRODUCT.priceLabel}`}
             </button>
             {hasStripeCustomer && (
               <button

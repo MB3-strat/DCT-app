@@ -1,7 +1,7 @@
 /**
  * Thin, typed localStorage helpers.
  * All persistence is namespaced so it can later be swapped for a backend
- * (Supabase) sync layer without touching call sites.
+ * (Firestore) sync layer without touching call sites.
  */
 
 const NS = "dct:";

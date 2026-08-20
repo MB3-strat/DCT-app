@@ -2,8 +2,10 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { ArrowLeft, AlertTriangle, Send, CheckCircle2 } from "lucide-react";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { PageContainer, PageHeading } from "@/components/app/PageContainer";
 import { useAuth } from "@/context/AuthContext";
+import { db } from "@/lib/firebase";
 
 const CATEGORIES = [
   "App crash or freeze",
@@ -16,7 +18,7 @@ const CATEGORIES = [
 ];
 
 export default function ReportTechnical() {
-  const { session } = useAuth();
+  const { user } = useAuth();
   const [page, setPage] = useState("");
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [description, setDescription] = useState("");
@@ -27,28 +29,27 @@ export default function ReportTechnical() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const response = await fetch("/api/report-issue", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
-      },
-      body: JSON.stringify({
+    if (!user || !db) {
+      toast.error("Please sign in again before submitting a report.");
+      return;
+    }
+
+    try {
+      await addDoc(collection(db, "reportedIssues"), {
+        userId: user.id,
         issueType: "technical",
         title: `${category} · ${page || "Unspecified page"} · ${errorId}`,
         description: `${description}\n\nDevice/browser: ${deviceInfo}`,
         url: window.location.href,
-      }),
-    });
-
-    if (!response.ok) {
-      const payload = await response.json().catch(() => ({}));
-      toast.error(payload.error || "Unable to submit report.");
-      return;
+        status: "open",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      setDone(true);
+      toast.success("Technical issue submitted.");
+    } catch {
+      toast.error("Unable to submit report.");
     }
-
-    setDone(true);
-    toast.success("Technical issue submitted.");
   }
 
   if (done) {
