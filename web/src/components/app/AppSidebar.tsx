@@ -5,6 +5,7 @@ import {
   Wrench,
   Siren,
   Bookmark,
+  Globe,
   User,
   Shield,
   FileText,
@@ -20,6 +21,7 @@ const NAV = [
   { to: "/app/toolkits", label: "Toolkits", icon: Wrench },
   { to: "/app/on-call", label: "On-Call", icon: Siren, emergency: true },
   { to: "/app/bookmarks", label: "Bookmarks", icon: Bookmark },
+  { to: "/app/external-resources", label: "External Resources", icon: Globe },
   { to: "/app/account", label: "Account", icon: User },
 ];
 

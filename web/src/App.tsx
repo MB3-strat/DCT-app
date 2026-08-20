@@ -38,6 +38,7 @@ import FeedbackCpd from "./pages/app/FeedbackCpd";
 import OnCall from "./pages/app/OnCall";
 import SearchPage from "./pages/app/SearchPage";
 import Bookmarks from "./pages/app/Bookmarks";
+import ExternalResources from "./pages/app/ExternalResources";
 import Account from "./pages/app/Account";
 import Billing from "./pages/app/Billing";
 import OfflineStatus from "./pages/app/OfflineStatus";
@@ -90,6 +91,7 @@ const App = () => (
                       <Route path="on-call" element={<OnCall />} />
                       <Route path="search" element={<SearchPage />} />
                       <Route path="bookmarks" element={<Bookmarks />} />
+                      <Route path="external-resources" element={<ExternalResources />} />
                       <Route path="account" element={<Account />} />
                       <Route path="billing" element={<Billing />} />
                       <Route path="offline" element={<OfflineStatus />} />
