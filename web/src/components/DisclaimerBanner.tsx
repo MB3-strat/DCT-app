@@ -3,7 +3,6 @@ import { cn } from "@/lib/utils";
 
 /**
  * Persistent educational-use disclaimer.
- * Wording is a placeholder pending final legal/clinical approval.
  */
 export function DisclaimerBanner({ className, compact }: { className?: string; compact?: boolean }) {
   return (
@@ -19,8 +18,7 @@ export function DisclaimerBanner({ className, compact }: { className?: string; c
         <strong>Educational aid only.</strong> This is a personal reference and
         survival resource. It does not replace senior clinical advice, local
         trust policies, professional judgment, or emergency escalation
-        procedures. Always confirm doses and pathways against local guidance.{" "}
-        <span className="opacity-70">(Placeholder wording — pending final approval.)</span>
+        procedures. Always confirm doses and pathways against local guidance.
       </p>
     </div>
   );
