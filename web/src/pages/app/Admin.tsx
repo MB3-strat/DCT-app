@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Navigate } from "react-router-dom";
 import {
-  ShieldCheck, BookOpen, Wrench, FileWarning, Users, UserCog, GitBranch, AlertTriangle,
+  ShieldCheck, BookOpen, Wrench, FileWarning, Users, UserCog, GitBranch, AlertTriangle, CreditCard,
 } from "lucide-react";
 import { PageContainer, PageHeading } from "@/components/app/PageContainer";
 import { UrgencyBadge } from "@/components/UrgencyBadge";
@@ -10,8 +10,9 @@ import { TOOLKITS } from "@/data/toolkits";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 import { AdminUsersTab } from "@/components/app/AdminUsersTab";
+import { AdminStripeCheckTab } from "@/components/app/AdminStripeCheckTab";
 
-type Tab = "modules" | "toolkits" | "issues" | "roles" | "users";
+type Tab = "modules" | "toolkits" | "issues" | "roles" | "users" | "stripe";
 
 const ROLES = [
   { role: "Editor", desc: "Draft and edit content, cannot publish." },
@@ -28,6 +29,7 @@ export default function Admin() {
 
   const TABS: { key: Tab; label: string; icon: typeof BookOpen }[] = [
     { key: "users", label: "Users", icon: Users },
+    { key: "stripe", label: "Stripe check", icon: CreditCard },
     { key: "modules", label: "Modules", icon: BookOpen },
     { key: "toolkits", label: "Toolkits", icon: Wrench },
     { key: "issues", label: "Reported issues", icon: FileWarning },
@@ -66,6 +68,8 @@ export default function Admin() {
       </div>
 
       {tab === "users" && <AdminUsersTab />}
+
+      {tab === "stripe" && <AdminStripeCheckTab />}
 
       {tab === "modules" && (
         <div className="overflow-x-auto rounded-xl border border-border">
