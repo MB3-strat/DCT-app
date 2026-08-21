@@ -188,7 +188,9 @@ export default function Account() {
               <CreditCard className="h-5 w-5 text-brand-green" /> Subscription
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              {subLabel[user.subscription]}{user.renewsOn ? ` · renews ${user.renewsOn}` : ""}
+              {/* Single-term subscriptions don't renew (see stripe-webhook.ts) —
+                  this is when access ends, not a renewal date. */}
+              {subLabel[user.subscription]}{user.renewsOn ? ` · access until ${user.renewsOn}` : ""}
             </p>
           </div>
           <Link to="/app/billing" className="rounded-full bg-brand-green px-4 py-2 text-sm font-semibold text-white hover:bg-brand-green-mid">

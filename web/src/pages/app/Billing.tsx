@@ -105,7 +105,10 @@ export default function Billing() {
               {user.subscription}
             </span>
           </div>
-          {user.renewsOn && <p className="mt-2 text-sm text-white/70">Renews on {user.renewsOn}</p>}
+          {/* Subscriptions are single-term (cancel_at_period_end set server-side
+              on creation) — this date is when access ends, not a renewal
+              date, so the label has to say that plainly. */}
+          {user.renewsOn && <p className="mt-2 text-sm text-white/70">Access until {user.renewsOn}</p>}
         </div>
         <div className="p-6">
           <ul className="space-y-2 text-sm">

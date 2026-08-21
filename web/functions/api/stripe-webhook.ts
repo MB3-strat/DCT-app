@@ -44,6 +44,20 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
             ? new Date(subscription.current_period_end * 1000).toISOString()
             : undefined,
         });
+
+        // Subscriptions sold through this app are single-term: one charge
+        // now, then Stripe ends the subscription automatically at the
+        // close of this billing period instead of generating a renewal
+        // invoice — no ongoing/continuous billing. Scoped to "created"
+        // only, not "updated"/"deleted", so this never fights a deliberate
+        // change made later directly in the Stripe dashboard (e.g. an
+        // admin manually re-enabling auto-renew for someone). This update
+        // call itself fires a follow-up customer.subscription.updated
+        // event, which just re-runs the record write above with the same
+        // status — not a loop, since that event type never reaches here.
+        if (event.type === "customer.subscription.created" && !subscription.cancel_at_period_end) {
+          await stripe.subscriptions.update(subscription.id, { cancel_at_period_end: true });
+        }
       }
     }
 
