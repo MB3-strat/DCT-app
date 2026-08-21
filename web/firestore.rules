@@ -15,6 +15,43 @@ service cloud.firestore {
         'admin' in get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.roles;
     }
 
+    // Field-level bounds for the feedback survey and issue-report forms —
+    // the actual enforcement layer. The app's own forms already cap these
+    // client-side (see src/lib/formLimits.ts) and validate select/radio
+    // fields against a fixed option list, but that's just UX: anyone
+    // authenticated could otherwise call the Firestore SDK directly and
+    // skip the app entirely, so these checks are what stops an oversized
+    // or malformed write from actually landing. Numbers here are mirrored
+    // from formLimits.ts — keep both in sync by hand if either changes.
+    function isValidFeedback(uid, data) {
+      return data.userId == uid
+        && data.userName is string && data.userName.size() <= 100
+        && data.userEmail is string && data.userEmail.size() <= 200
+        && data.usefulness in ['Extremely useful', 'Very useful', 'Useful', 'Somewhat useful', 'Not useful']
+        && data.confidenceBefore in ['1', '2', '3', '4', '5']
+        && data.confidenceAfter in ['1', '2', '3', '4', '5']
+        && data.changedApproach in ['Significantly', 'Yes, to some extent', 'A little', 'Not really', 'Not at all']
+        && data.recommend in ['Definitely', 'Probably', 'Not sure', 'Probably not', 'Definitely not']
+        && (data.rating is int || data.rating is float) && data.rating >= 1 && data.rating <= 5
+        && data.sections is list && data.sections.size() <= 20
+        && data.valuableLearning is string && data.valuableLearning.size() <= 1000
+        && data.missing is string && data.missing.size() <= 1000
+        && data.improvements is string && data.improvements.size() <= 1000
+        && data.comments is string && data.comments.size() <= 1000;
+    }
+
+    function isValidIssueCreate(data) {
+      return data.userName is string && data.userName.size() <= 100
+        && data.userEmail is string && data.userEmail.size() <= 200
+        && data.issueType in ['technical', 'clinical']
+        && data.title is string && data.title.size() <= 300
+        && data.description is string && data.description.size() <= 3000
+        && data.url is string && data.url.size() <= 500
+        && data.status == 'open'
+        && (!('contentId' in data) || (data.contentId is string && data.contentId.size() <= 10))
+        && (!('contactOk' in data) || data.contactOk is bool);
+    }
+
     match /profiles/{uid} {
       // Admins can additionally read every OTHER profile too, for the admin
       // user-overview page — everything else about a profile stays owner-only.
@@ -50,18 +87,44 @@ service cloud.firestore {
     }
 
     match /reportedIssues/{issueId} {
-      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      // Admins can read every report, for the triage/response view — see
+      // functions-free client query in AdminIssuesTab.tsx (no Cloudflare
+      // Function needed here, unlike admin-users.ts, since nothing but
+      // Firestore itself is involved).
+      allow read: if request.auth != null && (request.auth.uid == resource.data.userId || isAdmin());
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId
+        && isValidIssueCreate(request.resource.data);
 
-      // Reports are kept as a safety/audit record even after the
-      // submitter's account is deleted, but the owner can sever the link
-      // back to their identity at deletion time — narrowly scoped to
-      // exactly that one field, set to exactly null, nothing else.
-      allow update: if request.auth != null && request.auth.uid == resource.data.userId
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['userId'])
-        && request.resource.data.userId == null;
+      allow update: if request.auth != null && (
+        // Reports are kept as a safety/audit record even after the
+        // submitter's account is deleted, but the owner can sever the link
+        // back to their identity at deletion time — narrowly scoped to
+        // exactly those fields, each set to exactly null, nothing else.
+        (request.auth.uid == resource.data.userId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['userId', 'userName', 'userEmail'])
+          && request.resource.data.userId == null
+          && request.resource.data.userName == null
+          && request.resource.data.userEmail == null)
+        // Admins can triage a report — set its status and leave an internal
+        // response — but can't touch who reported it or what it says.
+        || (isAdmin()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'adminResponse', 'updatedAt'])
+          && request.resource.data.status in ['open', 'in-progress', 'resolved']
+          && (!('adminResponse' in request.resource.data)
+            || (request.resource.data.adminResponse is string && request.resource.data.adminResponse.size() <= 2000)))
+      );
 
       allow delete: if false;
+    }
+
+    match /feedback/{uid} {
+      // One feedback doc per user, keyed by their own uid (mirrors
+      // profiles/{uid}). Admins can read every response for the Feedback
+      // overview page; only the owner can ever write their own.
+      allow read: if request.auth != null && (request.auth.uid == uid || isAdmin());
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && isValidFeedback(uid, request.resource.data);
+      allow delete: if request.auth != null && request.auth.uid == uid;
     }
   }
 }

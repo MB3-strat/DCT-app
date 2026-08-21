@@ -78,7 +78,7 @@ export default function Account() {
 
     const confirmed = window.confirm(
       "Permanently delete your account and all your data? This cannot be undone. " +
-        "Your profile, bookmarks, progress and subscription record will all be removed. " +
+        "Your profile, bookmarks, progress, feedback and subscription record will all be removed. " +
         "(Issue reports you've submitted are kept for safety auditing, but will no longer be linked to your account.)",
     );
 
@@ -107,7 +107,7 @@ export default function Account() {
       const issuesSnap = await getDocs(query(collection(db, "reportedIssues"), where("userId", "==", user.id)));
       if (!issuesSnap.empty) {
         const anonymizeBatch = writeBatch(db);
-        issuesSnap.docs.forEach((d) => anonymizeBatch.update(d.ref, { userId: null }));
+        issuesSnap.docs.forEach((d) => anonymizeBatch.update(d.ref, { userId: null, userName: null, userEmail: null }));
         await anonymizeBatch.commit();
       }
 
@@ -121,6 +121,14 @@ export default function Account() {
       progressSnap.docs.forEach((d) => deleteBatch.delete(d.ref));
       await deleteBatch.commit();
       await deleteDoc(doc(db, "profiles", user.id));
+
+      // Feedback survey responses are analysed in aggregate, not kept as a
+      // per-person record — unlike issue reports, there's no reason to
+      // retain them once the account is gone, so this deletes outright
+      // rather than anonymising. Deleting a doc that was never created
+      // (someone who deletes their account without ever submitting
+      // feedback) is a no-op in Firestore, same as the rest of this flow.
+      await deleteDoc(doc(db, "feedback", user.id));
 
       for (const key of Object.keys(window.localStorage)) {
         if (key.startsWith("dct:")) window.localStorage.removeItem(key);
