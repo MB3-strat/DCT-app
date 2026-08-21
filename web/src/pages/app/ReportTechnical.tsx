@@ -6,6 +6,7 @@ import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { PageContainer, PageHeading } from "@/components/app/PageContainer";
 import { useAuth } from "@/context/AuthContext";
 import { db } from "@/lib/firebase";
+import { ISSUE_DESCRIPTION_MAX, ISSUE_SHORT_FIELD_MAX, NAME_MAX, sanitizeText } from "@/lib/formLimits";
 
 const CATEGORIES = [
   "App crash or freeze",
@@ -35,12 +36,16 @@ export default function ReportTechnical() {
     }
 
     try {
+      const cleanPage = sanitizeText(page, ISSUE_SHORT_FIELD_MAX) || "Unspecified page";
+      const cleanDescription = sanitizeText(description, ISSUE_DESCRIPTION_MAX);
       await addDoc(collection(db, "reportedIssues"), {
         userId: user.id,
+        userName: sanitizeText(user.name || "", NAME_MAX),
+        userEmail: sanitizeText(user.email || "", 200),
         issueType: "technical",
-        title: `${category} · ${page || "Unspecified page"} · ${errorId}`,
-        description: `${description}\n\nDevice/browser: ${deviceInfo}`,
-        url: window.location.href,
+        title: sanitizeText(`${category} · ${cleanPage} · ${errorId}`, 300),
+        description: sanitizeText(`${cleanDescription}\n\nDevice/browser: ${deviceInfo}`, 3000),
+        url: (window.location.href || "").slice(0, 500),
         status: "open",
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -84,15 +89,23 @@ export default function ReportTechnical() {
 
       <form onSubmit={submit} className="space-y-4">
         <Field label="Which page?">
-          <input value={page} onChange={(e) => setPage(e.target.value)} placeholder="e.g. On-Call mode, a module page" className="input" />
+          <input value={page} onChange={(e) => setPage(e.target.value)} maxLength={ISSUE_SHORT_FIELD_MAX} placeholder="e.g. On-Call mode, a module page" className="input" />
         </Field>
         <Field label="Issue type">
           <select value={category} onChange={(e) => setCategory(e.target.value)} className="input">
             {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
           </select>
         </Field>
-        <Field label="Description">
-          <textarea value={description} onChange={(e) => setDescription(e.target.value)} required rows={5} placeholder="What happened, and what did you expect?" className="input" />
+        <Field label={`Description (${description.length}/${ISSUE_DESCRIPTION_MAX})`}>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value.slice(0, ISSUE_DESCRIPTION_MAX))}
+            maxLength={ISSUE_DESCRIPTION_MAX}
+            required
+            rows={5}
+            placeholder="What happened, and what did you expect?"
+            className="input"
+          />
         </Field>
         <Field label="Device / browser (auto-detected)">
           <textarea value={deviceInfo} readOnly rows={2} className="input bg-muted text-xs text-muted-foreground" />

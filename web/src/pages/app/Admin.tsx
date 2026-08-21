@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Navigate } from "react-router-dom";
 import {
-  ShieldCheck, BookOpen, Wrench, FileWarning, Users, UserCog, GitBranch, AlertTriangle, CreditCard,
+  ShieldCheck, BookOpen, Wrench, FileWarning, Users, UserCog, GitBranch, AlertTriangle, CreditCard, MessageSquare,
 } from "lucide-react";
 import { PageContainer, PageHeading } from "@/components/app/PageContainer";
 import { UrgencyBadge } from "@/components/UrgencyBadge";
@@ -11,8 +11,10 @@ import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 import { AdminUsersTab } from "@/components/app/AdminUsersTab";
 import { AdminStripeCheckTab } from "@/components/app/AdminStripeCheckTab";
+import { AdminFeedbackTab } from "@/components/app/AdminFeedbackTab";
+import { AdminIssuesTab } from "@/components/app/AdminIssuesTab";
 
-type Tab = "modules" | "toolkits" | "issues" | "roles" | "users" | "stripe";
+type Tab = "modules" | "toolkits" | "issues" | "roles" | "users" | "stripe" | "feedback";
 
 const ROLES = [
   { role: "Editor", desc: "Draft and edit content, cannot publish." },
@@ -29,10 +31,11 @@ export default function Admin() {
 
   const TABS: { key: Tab; label: string; icon: typeof BookOpen }[] = [
     { key: "users", label: "Users", icon: Users },
+    { key: "feedback", label: "Feedback", icon: MessageSquare },
+    { key: "issues", label: "Reported issues", icon: FileWarning },
     { key: "stripe", label: "Stripe check", icon: CreditCard },
     { key: "modules", label: "Modules", icon: BookOpen },
     { key: "toolkits", label: "Toolkits", icon: Wrench },
-    { key: "issues", label: "Reported issues", icon: FileWarning },
     { key: "roles", label: "Roles", icon: UserCog },
   ];
 
@@ -68,6 +71,8 @@ export default function Admin() {
       </div>
 
       {tab === "users" && <AdminUsersTab />}
+
+      {tab === "feedback" && <AdminFeedbackTab />}
 
       {tab === "stripe" && <AdminStripeCheckTab />}
 
@@ -135,16 +140,7 @@ export default function Admin() {
         </div>
       )}
 
-      {tab === "issues" && (
-        <div className="rounded-xl border border-dashed border-border p-12 text-center">
-          <FileWarning className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
-          <p className="font-semibold">No reported issues</p>
-          <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
-            Reports submitted through the clinical and technical issue flows will
-            appear here for triage once a backend is connected.
-          </p>
-        </div>
-      )}
+      {tab === "issues" && <AdminIssuesTab />}
 
       {tab === "roles" && (
         <div className="space-y-4">

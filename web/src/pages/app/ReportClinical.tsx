@@ -10,6 +10,7 @@ import { TOOLKITS } from "@/data/toolkits";
 import { PRODUCT } from "@/data/meta";
 import { useAuth } from "@/context/AuthContext";
 import { db } from "@/lib/firebase";
+import { ISSUE_DESCRIPTION_MAX, ISSUE_SHORT_FIELD_MAX, NAME_MAX, sanitizeText } from "@/lib/formLimits";
 
 const CATEGORIES = [
   "Incorrect dose or threshold",
@@ -45,13 +46,16 @@ export default function ReportClinical() {
     }
 
     try {
+      const cleanSection = sanitizeText(section, ISSUE_SHORT_FIELD_MAX);
       await addDoc(collection(db, "reportedIssues"), {
         userId: user.id,
+        userName: sanitizeText(user.name || "", NAME_MAX),
+        userEmail: sanitizeText(user.email || "", 200),
         issueType: "clinical",
-        contentId,
-        title: `${category}${section ? ` · ${section}` : ""}`,
-        description,
-        url: window.location.href,
+        contentId: contentId.slice(0, 10),
+        title: sanitizeText(`${category}${cleanSection ? ` · ${cleanSection}` : ""}`, 300),
+        description: sanitizeText(description, ISSUE_DESCRIPTION_MAX),
+        url: (window.location.href || "").slice(0, 500),
         contactOk,
         status: "open",
         createdAt: serverTimestamp(),
@@ -109,7 +113,7 @@ export default function ReportClinical() {
           </select>
         </Field>
         <Field label="Section (optional)">
-          <input value={section} onChange={(e) => setSection(e.target.value)} placeholder="e.g. Red Flags, Management Algorithm" className="input" />
+          <input value={section} onChange={(e) => setSection(e.target.value)} maxLength={ISSUE_SHORT_FIELD_MAX} placeholder="e.g. Red Flags, Management Algorithm" className="input" />
         </Field>
         <Field label="Content version">
           <input value={`v1.0 · content ${PRODUCT.contentVersion}`} readOnly className="input bg-muted text-muted-foreground" />
@@ -119,8 +123,16 @@ export default function ReportClinical() {
             {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
           </select>
         </Field>
-        <Field label="Description">
-          <textarea value={description} onChange={(e) => setDescription(e.target.value)} required rows={5} placeholder="Describe the issue and, if possible, the correct guidance and its source." className="input" />
+        <Field label={`Description (${description.length}/${ISSUE_DESCRIPTION_MAX})`}>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value.slice(0, ISSUE_DESCRIPTION_MAX))}
+            maxLength={ISSUE_DESCRIPTION_MAX}
+            required
+            rows={5}
+            placeholder="Describe the issue and, if possible, the correct guidance and its source."
+            className="input"
+          />
         </Field>
         <label className="flex items-start gap-3 rounded-lg border border-border bg-card/60 p-3 text-sm text-muted-foreground">
           <Checkbox

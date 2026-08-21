@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, ArrowRight, CheckCircle2, CreditCard, Download, Info, Loader2, Lock, RefreshCw, Send, Star } from "lucide-react";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { PageContainer } from "@/components/app/PageContainer";
 import { DisclaimerBanner } from "@/components/DisclaimerBanner";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { MODULES } from "@/data/modules";
 import { useAuth } from "@/context/AuthContext";
 import { useLibrary } from "@/context/LibraryContext";
+import { db } from "@/lib/firebase";
+import { FEEDBACK_TEXT_MAX, NAME_MAX, REGISTRATION_NUMBER_MAX, sanitizeText } from "@/lib/formLimits";
 import { readJSON, writeJSON } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -163,10 +166,53 @@ export default function FeedbackCpd() {
         (form.fullName.trim() && form.registrationNumber.trim() && form.confirmations.length === CONFIRMATIONS.length)),
   );
 
-  function submit(e: FormEvent) {
+  // Survey answers are saved to Firestore (one doc per user, keyed by uid)
+  // so this feedback can actually be reviewed and analysed later — it used
+  // to live only in this browser's localStorage, invisible to anyone but
+  // the person who filled it in. The local save (via the writeJSON effect
+  // above) still happens regardless, so the form keeps working offline and
+  // never loses what's been typed even if the Firestore write fails.
+  const isFirstSubmission = !form.submittedAt;
+
+  async function submit(e: FormEvent) {
     e.preventDefault();
     if (!requiredComplete) return;
+
     setForm((prev) => ({ ...prev, submitted: true, submittedAt: new Date().toISOString() }));
+
+    if (user && db) {
+      try {
+        await setDoc(
+          doc(db, "feedback", user.id),
+          {
+            userId: user.id,
+            userName: sanitizeText(user.name || "", NAME_MAX),
+            userEmail: sanitizeText(user.email || "", 200),
+            usefulness: form.usefulness,
+            // Fixed checkbox list caps this at 11 entries by construction —
+            // still sliced defensively in case that list ever grows.
+            sections: form.sections.slice(0, 20),
+            confidenceBefore: form.confidenceBefore,
+            confidenceAfter: form.confidenceAfter,
+            changedApproach: form.changedApproach,
+            // Free-text fields: stripped of control characters and hard-capped
+            // client-side (firestore.rules enforces the same caps server-side,
+            // since a direct API call could otherwise skip this entirely).
+            valuableLearning: sanitizeText(form.valuableLearning, FEEDBACK_TEXT_MAX),
+            missing: sanitizeText(form.missing, FEEDBACK_TEXT_MAX),
+            improvements: sanitizeText(form.improvements, FEEDBACK_TEXT_MAX),
+            recommend: form.recommend,
+            rating: form.rating,
+            comments: sanitizeText(form.comments, FEEDBACK_TEXT_MAX),
+            updatedAt: serverTimestamp(),
+            ...(isFirstSubmission ? { createdAt: serverTimestamp() } : {}),
+          },
+          { merge: true },
+        );
+      } catch {
+        toast.error("Feedback saved on this device, but couldn't sync to the server — it'll retry next time you save.");
+      }
+    }
   }
 
   async function openCertificateCheckout() {
@@ -315,9 +361,9 @@ export default function FeedbackCpd() {
 
           <RadioField label="4. Has the Survival Kit changed your approach to DCT work?" options={CHANGE_OPTIONS} value={form.changedApproach} onChange={(value) => update("changedApproach", value)} />
 
-          <TextareaField label="5. What was the most valuable thing you learned?" value={form.valuableLearning} onChange={(value) => update("valuableLearning", value)} />
-          <TextareaField label="6. Was anything missing?" value={form.missing} onChange={(value) => update("missing", value)} />
-          <TextareaField label="7. What should we add or improve?" value={form.improvements} onChange={(value) => update("improvements", value)} />
+          <TextareaField label="5. What was the most valuable thing you learned?" value={form.valuableLearning} onChange={(value) => update("valuableLearning", value)} maxLength={FEEDBACK_TEXT_MAX} />
+          <TextareaField label="6. Was anything missing?" value={form.missing} onChange={(value) => update("missing", value)} maxLength={FEEDBACK_TEXT_MAX} />
+          <TextareaField label="7. What should we add or improve?" value={form.improvements} onChange={(value) => update("improvements", value)} maxLength={FEEDBACK_TEXT_MAX} />
 
           <RadioField label="8. Would you recommend the DCT Survival Kit to another DCT?" options={RECOMMEND_OPTIONS} value={form.recommend} onChange={(value) => update("recommend", value)} />
 
@@ -341,7 +387,7 @@ export default function FeedbackCpd() {
             </div>
           </div>
 
-          <TextareaField label="10. Additional comments" value={form.comments} onChange={(value) => update("comments", value)} />
+          <TextareaField label="10. Additional comments" value={form.comments} onChange={(value) => update("comments", value)} maxLength={FEEDBACK_TEXT_MAX} />
         </FormSection>
 
         <FormSection title="4-hour CPD certificate details">
@@ -380,11 +426,11 @@ export default function FeedbackCpd() {
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <label className="text-sm font-semibold" htmlFor="fullName">Full name for certificate</label>
-                  <Input id="fullName" value={form.fullName} onChange={(e) => update("fullName", e.target.value)} className="mt-2" />
+                  <Input id="fullName" value={form.fullName} onChange={(e) => update("fullName", e.target.value)} maxLength={NAME_MAX} className="mt-2" />
                 </div>
                 <div>
                   <label className="text-sm font-semibold" htmlFor="registrationNumber">GDC/GMC number</label>
-                  <Input id="registrationNumber" value={form.registrationNumber} onChange={(e) => update("registrationNumber", e.target.value)} className="mt-2" />
+                  <Input id="registrationNumber" value={form.registrationNumber} onChange={(e) => update("registrationNumber", e.target.value)} maxLength={REGISTRATION_NUMBER_MAX} className="mt-2" />
                 </div>
               </div>
 
@@ -532,11 +578,30 @@ function CheckboxField({
   );
 }
 
-function TextareaField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+function TextareaField({
+  label, value, onChange, maxLength,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  maxLength?: number;
+}) {
   return (
     <div>
-      <label className="text-sm font-semibold">{label}</label>
-      <Textarea value={value} onChange={(e) => onChange(e.target.value)} className="mt-2 min-h-[110px]" />
+      <div className="flex items-baseline justify-between gap-2">
+        <label className="text-sm font-semibold">{label}</label>
+        {maxLength != null && (
+          <span className={cn("flex-shrink-0 text-xs", value.length >= maxLength ? "text-destructive" : "text-muted-foreground")}>
+            {value.length}/{maxLength}
+          </span>
+        )}
+      </div>
+      <Textarea
+        value={value}
+        onChange={(e) => onChange(maxLength != null ? e.target.value.slice(0, maxLength) : e.target.value)}
+        maxLength={maxLength}
+        className="mt-2 min-h-[110px]"
+      />
     </div>
   );
 }
