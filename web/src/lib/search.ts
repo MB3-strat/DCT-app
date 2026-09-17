@@ -96,6 +96,11 @@ export function search(query: string): SearchResult[] {
       ...(t.steps ?? []),
       ...(t.items ?? []),
       ...((t.links ?? []).map((link) => `${link.label} ${link.url}`)),
+      ...((t.tables ?? []).flatMap((table) => [
+        table.label ?? "",
+        ...table.headers,
+        ...table.rows.flat(),
+      ])),
     ];
     for (const st of steps) {
       const sn = snippet(st, q);
