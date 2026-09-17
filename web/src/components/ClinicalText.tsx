@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
+import type { ToolkitTable } from "@/data/types";
 
 /**
  * Renders a single clinical item verbatim.
@@ -35,6 +36,43 @@ export function ClinicalItem({ text }: { text: string }) {
           )
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * Renders a reference/comparison table verbatim (e.g. "arterial vs venous
+ * flap signs", "finding vs what to think about"). Styling mirrors the
+ * admin data tables elsewhere in the app (AdminUsersTab) for consistency.
+ */
+export function ClinicalTable({ table }: { table: ToolkitTable }) {
+  return (
+    <div className="mb-4 last:mb-0">
+      {table.label && (
+        <p className="mb-2 font-semibold text-foreground">{table.label}</p>
+      )}
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
+            <tr>
+              {table.headers.map((h, i) => (
+                <th key={i} className="px-3 py-2.5 font-semibold">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {table.rows.map((row, i) => (
+              <tr key={i} className="border-t border-border">
+                {row.map((cell, j) => (
+                  <td key={j} className="px-3 py-2.5 align-top leading-relaxed text-foreground/85">
+                    {cell}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

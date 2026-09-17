@@ -7,6 +7,7 @@ import {
 import { PageContainer } from "@/components/app/PageContainer";
 import { UrgencyBadge } from "@/components/UrgencyBadge";
 import { DisclaimerBanner } from "@/components/DisclaimerBanner";
+import { ClinicalTable } from "@/components/ClinicalText";
 import { getToolkitBySlug } from "@/data/toolkits";
 import { getModuleById } from "@/data/modules";
 import { useLibrary } from "@/context/LibraryContext";
@@ -112,6 +113,15 @@ export default function ToolkitDetail() {
             </div>
           )}
 
+          {/* Reference tables (comparisons, lookups) */}
+          {toolkit.tables && toolkit.tables.length > 0 && (
+            <div className="mt-6 rounded-xl border border-border bg-card p-4">
+              {toolkit.tables.map((table, i) => (
+                <ClinicalTable key={i} table={table} />
+              ))}
+            </div>
+          )}
+
           {toolkit.links && toolkit.links.length > 0 && (
             <div className="mt-6 grid gap-3">
               {toolkit.links.map((link) => {
@@ -153,6 +163,9 @@ export default function ToolkitDetail() {
           {/* Interactive checklist / form */}
           {items.length > 0 && (
             <div className="mt-6">
+              {toolkit.itemsLabel && (
+                <p className="mb-2 font-serif text-lg font-semibold">{toolkit.itemsLabel}</p>
+              )}
               <div className="mb-3 flex items-center justify-between">
                 <span className="text-sm font-semibold text-muted-foreground">
                   {checked.length} / {items.length} complete

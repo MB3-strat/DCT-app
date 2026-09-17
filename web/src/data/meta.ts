@@ -20,8 +20,8 @@ export const PRODUCT = {
     "Junior doctors rotating through OMFS",
   ],
   contentVersion: "2026.07",
-  moduleCount: 36,
-  toolkitCount: 18,
+  moduleCount: 37,
+  toolkitCount: 22,
 } as const;
 
 export const CATEGORIES: {

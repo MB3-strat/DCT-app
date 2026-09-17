@@ -3320,5 +3320,324 @@
   "lastReviewed": "Needs clinical review",
   "nextReview": "Needs clinical review",
   "status": "published"
+ },
+ {
+  "id": "M39",
+  "slug": "post-operative-head-neck-cancer-surgery",
+  "title": "Post-Operative Head & Neck Cancer Surgery",
+  "category": "Clinical",
+  "urgency": "Emergency",
+  "tags": [
+   "head-and-neck-cancer",
+   "free-flap",
+   "tracheostomy",
+   "laryngectomy",
+   "neck-haematoma",
+   "chyle-leak",
+   "flap-monitoring",
+   "post-operative"
+  ],
+  "quote": "You are not expected to know everything. You are expected to recognise when something is wrong and get the right person involved early.",
+  "sections": [
+   {
+    "heading": "",
+    "items": [
+     "Post-operative head and neck cancer patients are among the most complex patients you will encounter on an OMFS/maxillofacial ward.",
+     "Major oral cavity or oropharyngeal resection\nComposite resection and neck dissection\nFree-flap reconstruction\nPedicled flap reconstruction\nTracheostomy\nTotal laryngectomy\nPharyngectomy\nMandibulectomy/maxillectomy\nSkin resection and reconstruction\nPEG insertion\nMultiple drains\nComplex vascular anastomoses",
+     "The patient can therefore deteriorate rapidly from airway compromise, haemorrhage, flap compromise, sepsis, aspiration, electrolyte disturbance, chyle leak or nutritional problems.",
+     "For the DCT, the key principle is:\n\"You do not need to manage these patients alone. You do need to recognise deterioration early, start appropriate immediate management and escalate promptly.\""
+    ]
+   },
+   {
+    "heading": "Learning Objectives",
+    "items": [
+     "Identify the major components of a head and neck cancer operation.\nPerform a structured post-operative assessment.\nRecognise potentially life-threatening airway problems.\nUnderstand the difference between a tracheostomy and a laryngectomy.\nPerform and interpret basic free-flap observations.\nRecognise early signs of flap compromise.\nIdentify post-operative neck haematoma and haemorrhage.\nRecognise chyle leak.\nRecognise salivary/pharyngeal fistula.\nAssess wounds, drains and reconstruction.\nUnderstand the principles of post-operative nutrition and fluid management.\nRecognise sepsis, respiratory deterioration and thromboembolic disease.\nKnow when to contact the registrar, consultant, anaesthetics, ENT, ICU/HDU or other specialist teams.\nDocument an appropriate post-operative assessment and escalation plan."
+    ]
+   },
+   {
+    "heading": "Golden Rule: Know the Operation",
+    "items": [
+     "Before examining the patient, find out:\n\"What exactly did they have done?\"",
+     "Do not start by assuming that every head and neck cancer patient has simply had \"a neck dissection and flap\". Read the operation note.",
+     "Identify the following:",
+     "Resection\nPrimary tumour site\nStructures removed\nMandibulectomy/maxillectomy\nTongue resection\nFloor-of-mouth resection\nPharyngeal resection\nSkin resection\nParotid/submandibular gland surgery",
+     "Neck\nSide of neck dissection\nLevels dissected\nStructures sacrificed\nCarotid involvement\nInternal jugular vein sacrifice\nSpinal accessory nerve sacrifice/preservation\nHypoglossal nerve\nVagus nerve\nPhrenic nerve\nThoracic duct region",
+     "Reconstruction\nFree flap\nPedicled flap\nLocal flap\nSkin graft\nPrimary closure",
+     "If free flap:\nFlap type\nArtery\nVein\nAnastomosis\nRecipient vessels\nImplantable Doppler if used\nMonitoring protocol",
+     "Airway\nTracheostomy?\nLaryngectomy?\nTube type and size?\nCuffed/uncuffed?\nFenestrated?\nSutured or secured?\nAny airway concerns?",
+     "Feeding\nNG tube?\nPEG/RIG?\nNasojejunal tube?\nOral intake permitted?\nNil by mouth?\nSwallow assessment required?",
+     "Drains\nNumber\nLocation\nExpected output\nWhether suction is required"
+    ]
+   },
+   {
+    "heading": "The First Five Minutes at the Bedside",
+    "items": [
+     "If called because the patient is unwell:",
+     "The key question:\n\"What has changed from this patient's previous baseline?\"",
+     "The A–E Quick Check\nA – AIRWAY — Is the patient talking? Is there stridor? Is there airway obstruction? Is the tracheostomy patent? Is the tube displaced? Is there blood/secretions obstructing the tube? Is this a laryngectomy patient?\nB – BREATHING — Respiratory rate; oxygen saturations; work of breathing; chest movement; breath sounds; oxygen requirement.\nC – CIRCULATION — Heart rate; blood pressure; capillary refill; peripheral perfusion; bleeding; drain output; neck swelling; urine output.\nD – DISABILITY — Conscious level; confusion; pain; blood glucose if appropriate.\nE – EXPOSURE — Neck; flap; wound; drains; donor site; tracheostomy; chest; abdomen; legs for DVT signs."
+    ]
+   },
+   {
+    "heading": "The Post-Operative Head & Neck Cancer Ward Round",
+    "items": [
+     "A useful sequence is:",
+     "Airway → Flap → Neck → Wound → Drains → Nutrition → Fluids/electrolytes → Respiratory status → Pain → Mobility/VTE → Blood results → Antibiotics/medications → Rehabilitation → Discharge planning"
+    ]
+   },
+   {
+    "heading": "Airway – Your First Priority",
+    "items": [
+     "Head and neck cancer surgery can completely alter normal airway anatomy.",
+     "Oedema\nBleeding\nHaematoma\nSecretions\nMucus plugging\nTube obstruction\nTube displacement\nFalse passage\nAspiration\nFlap swelling\nPharyngeal swelling\nInfection\nPneumonia",
+     "Never assume the airway is secure because the patient has a tracheostomy.",
+     "A tracheostomy can become blocked, displaced, decannulated, malpositioned, or obstructed by secretions or blood."
+    ]
+   },
+   {
+    "heading": "Tracheostomy vs Laryngectomy",
+    "items": [
+     "This distinction is critical.",
+     "Tracheostomy",
+     "The patient usually retains a connection between the upper airway and lungs. Therefore, depending on the circumstances, oxygenation may potentially be achieved through the face, mouth/nose or tracheostomy.",
+     "Total laryngectomy",
+     "The patient's airway is permanently separated from the mouth and nose.",
+     "A laryngectomy patient breathes exclusively through the neck stoma.",
+     "DCT Survival Box",
+     "If you encounter a patient with a neck stoma in an emergency: \"Find out immediately whether this is a tracheostomy or a laryngectomy.\" If uncertain, seek urgent senior/airway assistance."
+    ]
+   },
+   {
+    "heading": "Tracheostomy Emergency",
+    "items": [
+     "If a tracheostomy patient deteriorates:\nCall for help.\nAssess ABC.\nGive oxygen.\nAssess the patient, not just the monitor.\nRemove obvious obstruction if appropriate.\nCheck tube position and patency.\nSuction if indicated.\nFollow the patient's tracheostomy emergency algorithm/local protocol.\nInvolve anaesthetics/ENT/OMFS/critical care early where appropriate.",
+     "Red flags\nSudden desaturation\nIncreasing respiratory effort\nNo airflow through tube\nUnable to pass suction catheter\nHigh airway resistance\nNew bleeding\nTube displacement\nSubcutaneous emphysema\nRapid neck swelling",
+     "A blocked or displaced tracheostomy is an airway emergency.",
+     "Follow your local tracheostomy emergency algorithm and obtain expert airway assistance early."
+    ]
+   },
+   {
+    "heading": "Free-Flap Monitoring",
+    "items": [
+     "Free-flap reconstruction is one of the most important reasons these patients require close post-operative observation.",
+     "The flap depends on arterial inflow, venous drainage and patent microvascular anastomoses. Failure can result in flap loss.",
+     "Depending on the flap and local protocol, assess:\nColour\nTemperature\nTurgor\nCapillary refill\nPin-prick bleeding where prescribed\nDoppler signal\nSwelling\nCongestion\nComparison with previous observations",
+     "The most important principle:\n\"Know what the flap looked and sounded like previously.\"",
+     "A single observation is less useful than a change from baseline."
+    ]
+   },
+   {
+    "heading": "Flap Red Flags",
+    "items": [
+     "What should the DCT do?",
+     "Escalate immediately. Do not wait until the next ward round. Do not assume that a flap with a marginal observation will \"probably improve\". Do not repeatedly manipulate the flap yourself while waiting for senior review.",
+     "DCT Survival Rule\n\"A potentially compromised free flap is a time-critical surgical problem.\""
+    ]
+   },
+   {
+    "heading": "Neck Dissection",
+    "items": [
+     "After neck dissection, inspect for:\nHaematoma\nSeroma\nWound breakdown\nInfection\nSalivary leak\nChyle leak\nSkin flap necrosis\nFacial/neck swelling\nNeurological deficit",
+     "Know whether major structures were preserved or sacrificed.",
+     "Possible post-operative neurological findings include shoulder weakness, tongue weakness, lower facial weakness, vocal cord dysfunction and sensory changes. The significance depends on the operative findings and structures involved."
+    ]
+   },
+   {
+    "heading": "Post-Operative Neck Haematoma",
+    "items": [
+     "This is one of the most important complications to recognise.",
+     "Clinical features\nIncreasing neck swelling\nTight neck\nPain\nBruising\nIncreasing drain output or surprisingly little drain output\nDysphagia\nRespiratory difficulty\nStridor\nVenous congestion\nAnxiety/restlessness\nTachycardia\nHypotension",
+     "Critical point:",
+     "A drain does not exclude a neck haematoma.",
+     "A drain may be blocked, kinked, displaced, too small to drain the collection, or positioned away from the bleeding point.",
+     "Management\nCall senior surgical help immediately.\nABC assessment.\nOxygen.\nIV access.\nBloods/crossmatch as appropriate.\nActivate local major haemorrhage pathway if indicated.\nEarly anaesthetic/critical care involvement.\nPrepare for urgent return to theatre if required.",
+     "DCT Survival Box\n\"Neck swelling + airway symptoms after major head and neck surgery = emergency until proven otherwise.\""
+    ]
+   },
+   {
+    "heading": "Drains",
+    "items": [
+     "Never write: \"Drains fine.\"",
+     "Instead document:\nNumber of drains\nLocation\nAmount\nCharacter\nTrend\nSuction status\nWhether functioning"
+    ]
+   },
+   {
+    "heading": "Chyle Leak",
+    "items": [
+     "The thoracic duct and right lymphatic duct can be injured during neck dissection.",
+     "A chyle leak may present as:\nIncreasing drain output\nMilky/creamy drainage\nIncreased output after feeding\nNeck swelling\nFluid collection\nElectrolyte disturbance\nProtein loss\nNutritional depletion\nImmunological compromise",
+     "Think about chyle leak when:\n\"Drain output becomes milky, particularly after enteral feeding.\"",
+     "Management depends on volume of leak, timing, patient condition, surgical anatomy and local protocol.",
+     "Treatment may involve dietary modification, specialist dietetic input, drain management, pharmacological treatment in selected cases, or surgical intervention for persistent/high-output leaks.",
+     "Do not independently change enteral feeding without discussing the plan with the surgical and dietetic teams."
+    ]
+   },
+   {
+    "heading": "Salivary Leak / Pharyngeal Fistula",
+    "items": [
+     "Following oral/pharyngeal cancer surgery, leakage may occur from the oral cavity, pharynx, anastomosis or salivary gland region.",
+     "Look for:\nIncreasing drain output\nCloudy/salivary drainage\nWound wetness\nFoul smell\nSkin maceration\nNeck swelling\nFever\nWound breakdown",
+     "A fistula can subsequently lead to infection, abscess, carotid exposure and wound breakdown.",
+     "DCT action",
+     "Escalate early. Do not simply document \"possible saliva leak\" and wait several days."
+    ]
+   },
+   {
+    "heading": "Wound Infection and Dehiscence",
+    "items": [
+     "Assess:\nErythema\nSwelling\nWarmth\nTenderness\nDischarge\nPurulence\nWound separation\nSkin necrosis\nFlap viability\nOdour",
+     "Check systemic features:\nFever\nTachycardia\nHypotension\nConfusion\nRising inflammatory markers\nIncreasing oxygen requirement",
+     "A normal temperature does not exclude infection or sepsis."
+    ]
+   },
+   {
+    "heading": "Nutrition, Hydration and Swallowing",
+    "items": [
+     "Major head and neck cancer surgery can significantly impair oral intake, swallowing, speech, taste, saliva and mastication.",
+     "Patients may require:\nNG feeding\nPEG feeding\nRIG feeding\nModified diets\nThickened fluids\nSpeech and language therapy\nDietetic support",
+     "The DCT should know:\nIs the patient NBM?\nWhy?\nWhat is the feeding route?\nWhat is the current feeding regimen?\nIs the patient tolerating feeds?\nIs there a dietetic plan?\nHas SLT reviewed the patient?\nAre medications being administered appropriately?\nIs there an adequate fluid prescription?",
+     "Avoid the common mistake:\n\"Not eating\" ≠ \"nothing to worry about because they have a PEG.\"",
+     "Patients can still become dehydrated, malnourished, electrolyte depleted, hyperglycaemic, constipated or overloaded."
+    ]
+   },
+   {
+    "heading": "Refeeding Risk",
+    "items": [
+     "Patients with prolonged poor intake may be at risk of refeeding syndrome.",
+     "Think about:\nPhosphate\nPotassium\nMagnesium\nThiamine\nFluid balance",
+     "High-risk patients require appropriate nutritional assessment and monitoring according to local/NICE protocols.",
+     "DCT Survival Box\n\"Starting feeds is not simply a matter of prescribing calories. Know the patient's nutritional risk and follow the dietetic/medical plan.\""
+    ]
+   },
+   {
+    "heading": "VTE and Anticoagulation",
+    "items": [
+     "These patients can have significant thromboembolic risk because of major cancer surgery, malignancy, reduced mobility, age/comorbidity and prolonged hospitalisation.",
+     "Check:\nVTE assessment\nMechanical prophylaxis\nPharmacological prophylaxis\nRenal function\nBleeding risk\nTiming around surgery/procedures",
+     "But remember: head and neck cancer surgery also carries a significant bleeding risk.",
+     "Do not independently start, stop or alter anticoagulation without understanding the surgical plan and discussing it with the appropriate senior team."
+    ]
+   },
+   {
+    "heading": "Fluids and Electrolytes",
+    "items": [
+     "These patients can become \"quietly unwell\".",
+     "Monitor:\nSodium\nPotassium\nMagnesium\nPhosphate\nCalcium\nUrea\nCreatinine\nGlucose\nHaemoglobin",
+     "Also assess:\nFluid balance\nUrine output\nDrain losses\nEnteral losses\nIV fluid administration",
+     "Particular attention: high-output drains can produce significant fluid and electrolyte losses.",
+     "Do not simply look at the blood results in isolation.",
+     "Ask:\n\"What has the patient lost, and what have we replaced?\""
+    ]
+   },
+   {
+    "heading": "Respiratory Complications",
+    "items": [
+     "Atelectasis\nMucus plugging\nAspiration\nPneumonia\nPulmonary oedema\nCOPD exacerbation\nHypoventilation\nPulmonary embolism",
+     "Assess:\nRespiratory rate\nOxygen requirement\nWork of breathing\nChest examination\nCough\nSecretions\nAbility to clear secretions\nChest X-ray if indicated",
+     "A patient whose oxygen requirement is steadily increasing needs assessment. Do not simply keep increasing oxygen without identifying why."
+    ]
+   },
+   {
+    "heading": "Pain",
+    "items": [
+     "Good analgesia is important because poorly controlled pain can impair breathing, coughing, mobilisation, sleep and nutrition.",
+     "Review:\nPain score\nSite\nCharacter\nAnalgesic requirements\nParacetamol\nOpioids\nNSAIDs where appropriate\nNeuropathic pain agents where prescribed",
+     "Watch for opioid complications:\nSedation\nRespiratory depression\nNausea\nConstipation\nDelirium"
+    ]
+   },
+   {
+    "heading": "Delirium and Confusion",
+    "items": [
+     "A new change in behaviour or cognition should not simply be labelled \"confused post-op\".",
+     "Look for reversible causes:\nInfection\nHypoxia\nHypercapnia\nPain\nUrinary retention\nConstipation\nElectrolyte disturbance\nDehydration\nMedication effects\nSleep deprivation",
+     "Escalate significant or unexplained deterioration."
+    ]
+   },
+   {
+    "heading": "Communication, Speech and Psychological Care",
+    "items": [
+     "Head and neck cancer surgery can profoundly affect speech, swallowing, appearance, facial movement, social interaction, body image, independence, employment and psychological wellbeing.",
+     "Patients may require input from:\nSLT\nDietitians\nSpecialist nurses\nPhysiotherapists\nOccupational therapists\nPsychology\nProsthodontics\nRestorative dentistry\nCommunity services",
+     "DCT principle\n\"Do not focus exclusively on the surgical wound. The patient is more than the flap.\""
+    ]
+   },
+   {
+    "heading": "What Is the DCT's Job?",
+    "items": [
+     "Recognise → Assess → Act → Escalate → Document → Reassess\nRecognise: Identify abnormal findings.\nAssess: Perform an appropriate clinical assessment.\nAct: Start immediate appropriate management.\nEscalate: Tell the registrar/consultant early.\nDocument: Record what you found, what you did and who you contacted.\nReassess: Do not assume that because someone has reviewed the patient, your responsibility to monitor them has ended."
+    ]
+   },
+   {
+    "heading": "When to Call the Senior Immediately",
+    "items": [
+     "Consultant-level principle\n\"If you are worried enough to think 'I wonder if I should call the registrar', call the registrar.\""
+    ]
+   },
+   {
+    "heading": "The Post-Operative Handover",
+    "items": [
+     "A good handover should include:\n\"This is a [age]-year-old patient, day X following [operation].\"",
+     "Then:\nAirway – tracheostomy/laryngectomy, tube details, current oxygen requirement.\nFlap – type, viability, Doppler, any concerns.\nNeck – wound, swelling, drain output.\nNutrition – oral/NG/PEG, feeding regimen, SLT/dietetic plan.\nBloods – Hb, WCC/CRP, renal function, electrolytes.\nCurrent issues – infection, chyle, fistula, respiratory issue, pain, mobility.\nPlan – what needs doing today, what needs monitoring and what requires escalation."
+    ]
+   },
+   {
+    "heading": "Documentation",
+    "items": [
+     "A useful post-operative entry should allow another clinician to understand the patient's current status."
+    ]
+   },
+   {
+    "heading": "Discharge Planning Starts Early",
+    "items": [
+     "Discharge is not simply: \"Wound looks good — home.\"",
+     "Consider:\nAirway – Is the patient decannulated? Is stoma care understood? Is equipment available?\nNutrition – Oral intake? NG? PEG? Feeding plan? Community dietetic support?\nWound – Dressings? Drain? Suture/staple plan?\nMedication – Analgesia, antibiotics, anticoagulation and other regular medication.\nRehabilitation – SLT, dietetics, physiotherapy, OT and community support.\nFollow-up – Surgical team, oncology, MDT, SLT, dietetics, restorative/prosthodontic services as required."
+    ]
+   },
+   {
+    "heading": "Consultant Pearls",
+    "items": [
+     "Pearl 1\n\"Know the operation before you interpret the observations.\"",
+     "Pearl 2\n\"A tracheostomy is not the same as a laryngectomy.\"",
+     "Pearl 3\n\"A changing flap is more important than a single flap observation.\"",
+     "Pearl 4\n\"Neck swelling after major neck surgery is an emergency until proven otherwise.\"",
+     "Pearl 5\n\"A functioning drain does not exclude a haematoma.\"",
+     "Pearl 6\n\"Milky drain fluid should make you think of chyle.\"",
+     "Pearl 7\n\"Salivary-looking drainage from a neck wound is not \"just another drain\".\"",
+     "Pearl 8\n\"Do not wait for blood results before recognising a sick patient.\"",
+     "Pearl 9\n\"The patient's clinical trajectory matters more than an isolated number.\"",
+     "Pearl 10\n\"If the patient is deteriorating, escalate while you investigate — not after you have finished investigating.\""
+    ]
+   },
+   {
+    "heading": "The Golden DCT Rule",
+    "items": [
+     "When reviewing a complex post-operative head and neck cancer patient:",
+     "AIRWAY → FLAP → BLEEDING → SEPSIS → NUTRITION → FLUIDS → DRAINS → WOUND → RESPIRATORY STATUS → REHABILITATION",
+     "And remember:\n\"You are not expected to know everything. You are expected to recognise when something is wrong and get the right person involved early.\""
+    ]
+   },
+   {
+    "heading": "Key Take-Home Message",
+    "items": [
+     "Major head and neck cancer surgery produces patients with multiple simultaneous potential points of failure.",
+     "The DCT's role is not to become the reconstructive surgeon, intensivist, airway specialist, dietitian and oncologist overnight.",
+     "Your role is to:",
+     "Recognise → Assess → Stabilise → Escalate → Document → Reassess",
+     "The most dangerous mistakes are often not failures of advanced surgical knowledge. They are:",
+     "Not recognising an airway problem\nNot recognising a neck haematoma\nMissing a compromised flap\nIgnoring a change in drain output\nFailing to recognise sepsis\nAssuming a patient is well because their observations are initially normal\nFailing to escalate early",
+     "SEE THE PATIENT. KNOW THE OPERATION. RECOGNISE THE CHANGE. CALL EARLY."
+    ]
+   },
+   {
+    "heading": "Further Reading / Local Protocols",
+    "items": [
+     "Further Reading & Local Protocols\nNational Tracheostomy Safety Project (NTSP) adult emergency resources — Emergency tracheostomy and laryngectomy airway guidance; always follow local emergency pathways.\nNICE CG32 – Nutrition support for adults — Nutrition assessment, support and refeeding principles.\nNICE NG89 – Venous thromboembolism in over 16s — VTE risk assessment and prophylaxis principles.\nLocal OMFS / Head & Neck free-flap protocol — Flap monitoring frequency, assessment method, escalation pathway and return-to-theatre process.\nLocal tracheostomy / laryngectomy emergency policy — Emergency airway management and equipment requirements.\nLocal head & neck cancer enhanced recovery / nutrition protocol — Feeding, mobilisation, analgesia, fluids and discharge planning."
+    ]
+   }
+  ],
+  "version": "1.0",
+  "clinicalOwner": "Vyomesh Bhatt, Consultant OMF Surgeon (GMC 6098153 / GDC 79841)",
+  "lastReviewed": "Needs clinical review",
+  "nextReview": "Needs clinical review",
+  "status": "published"
  }
 ]

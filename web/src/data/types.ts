@@ -33,6 +33,13 @@ export interface Module {
   status: ContentStatus;
 }
 
+export interface ToolkitTable {
+  /** Optional short heading shown above this table (e.g. "Concerning drain findings"). */
+  label?: string;
+  headers: string[];
+  rows: string[][];
+}
+
 export interface Toolkit {
   id: string;
   slug: string;
@@ -43,7 +50,11 @@ export interface Toolkit {
   icon: string;
   introduction: string;
   steps?: string[];
+  /** Reference tables (comparisons, lookups) rendered above the checklist, if any. */
+  tables?: ToolkitTable[];
   items?: string[];
+  /** Optional heading shown above the `items` checklist (e.g. "Call senior immediately if…"). */
+  itemsLabel?: string;
   links?: { label: string; url: string }[];
   warnings?: string[];
   escalation?: string;
