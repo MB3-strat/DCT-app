@@ -110,12 +110,20 @@ to the repo.
 Project root for the Pages build is `web` (`pages_build_output_dir = "dist"`
 in `web/wrangler.toml`).
 
-Deploy:
+The Cloudflare Pages project's **Production branch** (Pages project settings
+→ Builds & deployments) is `migrate/firebase-cloudflare`, not `main`. The
+`--branch` value passed to `wrangler pages deploy` must match whatever is
+configured there — it does not need to match your current git branch, it
+just tells Cloudflare which deployment is production vs. preview. Deploying
+with any other `--branch` value creates a preview deployment at its own
+`*.dct-app.pages.dev` URL instead of updating the production domains below.
+
+Deploy to production:
 
 ```bash
 cd web
 npm run build
-npx wrangler pages deploy dist --project-name dct-app --branch <branch>
+npx wrangler pages deploy dist --project-name dct-app --branch migrate/firebase-cloudflare
 ```
 
 Requires a real Cloudflare KV namespace bound as `SUBSCRIPTIONS` in
